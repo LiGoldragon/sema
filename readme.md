@@ -24,7 +24,7 @@ the last major revision.
 #### Real Computer format
 
 Computers do no understand text, which means *there is not a single
-computer-code framework in existence today*. All of the prevalent
+computer-code programming framework in existence today*. All of the prevalent
 bronze-age-script-formated "pseudo-codes" in use today must first be *parsed*
 into logically-meaningful binary trees before computers can make any use of
 them. This in turn brings *immense* problems in terms of correctness,
