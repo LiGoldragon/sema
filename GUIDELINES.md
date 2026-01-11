@@ -1,7 +1,7 @@
-# Sajban Object Style — Unified Architecture and Naming Guide
+# Sema Object Style — Unified Architecture and Naming Guide
 
 This document defines the architectural, naming, and documentation rules for
-object‑oriented codebases that follow Sajban principles and the Criome lineage.
+object‑oriented codebases that follow Sema principles and the Criome lineage.
 The rules are structural rather than stylistic. Violations indicate missing
 abstraction, semantic duplication, or category error.
 
@@ -163,10 +163,10 @@ let config: Config = "...".parse()?;
 let config = Config::from(string_value);
 ```
 
-## Sajban Object Rule — Single Object In, Single Object Out
+## Sema Object Rule — Single Object In, Single Object Out
 
-*All values that cross object boundaries are Sajban objects.* Primitive types
-are internal representations only.
+*All values that cross object boundaries are Sema objects.* Primitive types are
+internal representations only.
 
 Every method accepts at most one explicit object argument (excluding `self`) and
 returns exactly one object. When multiple inputs or outputs are required, a new
@@ -185,15 +185,15 @@ impl TransformationOutput {
 }
 ```
 
-## Schema Is Sajban; Encoding Is Incidental
+## Schema Is Sema; Encoding Is Incidental
 
-All transmissible objects are defined in Sajban schemas. *Cap’n Proto is a
+All transmissible objects are defined in Sema schemas. *Cap’n Proto is a
 temporary wire representation* and must not appear in domain APIs, naming, or
 documentation.
 
 ```rust
-// Domain code speaks Sajban
-use sajban::hello_world;
+// Domain code speaks Sema
+use sema::hello_world;
 
 let message = hello_world::Builder::new();
 ```
@@ -220,7 +220,7 @@ No first‑ or second‑person language. No humor or evaluative commentary. Beha
 is stated as fact. Non‑boilerplate behavior is documented. Boilerplate is not.
 
 ```rust
-/// Constructs a `Greeting` from a Sajban `Text` value.
+/// Constructs a `Greeting` from a Sema `Text` value.
 ///
 /// Returns a fully initialized object.
 ```

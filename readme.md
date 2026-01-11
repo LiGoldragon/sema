@@ -1,10 +1,11 @@
-# Sajban: The Language of Knowledge
+# Sema - **The Symbolism Layer of Logical Intent**
 
-## Universal Distributed Computing: The *Silicone* is the OS
+## Universal Distributed Computing: the *Substrate* is the System
 
-Self-describing, asynchronous-logic, signature-authenticated object-messages to
-build the most sophisticated computer systems possible. Self-optimizing software
-remains optimal, *forever.*
+Self-describing, asynchronous, logically constrained, signature-authenticated
+object-messages form the basis of highly sophisticated computer systems.
+Software defined at the level of symbolic intent can refine itself without loss
+of coherence, remaining valid across time, platforms, and revisions.
 
 ## Design
 
@@ -14,54 +15,67 @@ remains optimal, *forever.*
 > heart.\
 > — *F. Nietzsche*
 
-Sajban's design is guided by perfection, which is best embodied in living
-organisms. In other words, sajban aims to be the sole framework used anywhere.
-Hence, the entire architecture must leave absolutely no room for improvement by
-the last major revision.
+Sema is guided by the same standard that governs living systems: **completion
+rather than iteration**. The aim is not to produce a tool among others, but to
+define a semantic layer from which all other computational forms may emerge. For
+this reason, the architecture is conceived to admit no structural improvement at
+its final revision, only refinement of interpretation.
 
 ### Technicalities
 
-#### Real Computer format
+#### Beyond textual programming formats
 
-Computers do no understand text, which means *there is not a single
-computer-code programming framework in existence today*. All of the prevalent
-bronze-age-script-formated "pseudo-codes" in use today must first be *parsed*
-into logically-meaningful binary trees before computers can make any use of
-them. This in turn brings *immense* problems in terms of correctness,
-performance, innovation and usability.
+Computers do not understand text. What are commonly called “programming
+languages” are in fact **textual notations for humans**, which must be parsed
+into internal logical structures before any computation occurs. This indirection
+introduces fundamental costs in correctness, performance, expressiveness, and
+usability.
 
-#### Self-describing objects - *Data* is the database
+Sema addresses this by operating directly at the level of **symbolic logical
+intent**, eliminating the need for text-first representations. Logical structure
+is primary, not derived.
 
-All sajban code has object-like properties, in the true sense of Alan Kay's
-'object-oriented' expression. In practice this implies that any sajban object
-carries its entire context - from the protocol needed to use it to all its past
-'states' , if any, and implicitely, all its possible future transformations.
+#### Self-describing symbolic objects — data as semantic ground
 
-#### Correctness *is* security
+All Sema expressions take the form of self-describing symbolic objects. In the
+sense originally intended by object-oriented computing, each object carries its
+own semantic context: the constraints governing its interpretation, the
+transformations it has undergone, and the space of transformations it admits.
 
-In contrast with today's pseudo-security systems such as SSL and SSH, *sajban is
-as secure as logically possible*. This is accomplished by using cryptograhic
-signatures on the object themselves instead of securing the connections
-progagating them. Such a system offers multi-signatures capability and lets
-users keep their keys in cold storage most of the time. Combined with its
-object-like properties, sajban becomes a natural fit for ultra-secure
-multi-airgaps and multi-key-holders systems.
+Data is therefore not stored *in* a database; **data is the database**, and
+meaning is inseparable from the object itself.
 
-### Notes
+#### Correctness as security
 
-#### Name
+Security is treated as a property of **logical correctness**, not of protected
+channels. Rather than securing connections, Sema binds cryptographic signatures
+directly to symbolic objects. Trust attaches to meaning, not transport.
 
-Sajban is lojban for 'Knowledge Language'. Lojban is very close in spirit, and
-both projects can be thought of two subfields of the same science:
-*communication logic*.
+This enables multi-signature systems, cold-storage key usage, and naturally
+supports air-gapped and multi-party environments. Because symbols are
+self-describing and self-verifying, integrity survives propagation across
+untrusted media.
+
+## Notes
+
+### Name
+
+**Sema** derives from the classical notion of the *sign*: a symbol recognized by
+shared interpretation rather than enforced syntax. In this sense, Sema
+designates the **symbolism of logical intent**—a semantic layer comparable to
+sound in spoken language, from which code, interfaces, and protocols may emerge.
+
+Earlier terminology framed this project as a “language of knowledge.” The
+current framing is more precise: Sema is not a language of expression, but the
+**symbolic medium** in which expression becomes possible.
 
 ### Contact
 
-Until sajban has a working prototype, exchanges will be held in a room on
-[matrix.org](https://matrix.org):
+Until a working prototype exists, discussion takes place on Matrix:
 
-- [#criome:matrix.org](https://matrix.to/#/#criome:matrix.org) for Sajban Space
-- [#CriomeLog:matrix.org](https://matrix.to/#/#CriomeLog:matrix.org) for
-  read-only minimal feed
-- [#CriomeDev:matrix.org](https://matrix.to/#/#CriomeDev:matrix.org) for
-  development-related talk
+- [https://matrix.to/#/#criome:matrix.org](https://matrix.to/#/#criome:matrix.org)
+  — Sema / Criome space
+- [https://matrix.to/#/#CriomeLog:matrix.org](https://matrix.to/#/#CriomeLog:matrix.org)
+  — read-only minimal feed
+- [https://matrix.to/#/#CriomeDev:matrix.org](https://matrix.to/#/#CriomeDev:matrix.org)
+  — development discussion
