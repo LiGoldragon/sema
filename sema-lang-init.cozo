@@ -11,7 +11,7 @@
 # These become capnp enums via samskara-codegen. ~88 variants, 13 domains.
 # ═══════════════════════════════════════════════════════════════════════
 
-# What structural kind a type has (Sowa lattice atoms, DOLCE foundational categories)
+# What structural form a type has (Sowa lattice atoms, DOLCE foundational categories)
 :create Type {
   name: String =>
   description: String,
@@ -107,10 +107,10 @@
 # ═══════════════════════════════════════════════════════════════════════
 
 # A schema is a set of type definitions
-:create schema_type {
-  schema_hash: String,
-  type_name: String =>
-  type_kind: String,
+:create schema_entry {
+  schema: String,
+  name: String =>
+  structure: String,
   ordinal: Int,
   phase: String,
   dignity: String
@@ -118,11 +118,11 @@
 
 # Each type has fields (structs) or variants (enums)
 :create schema_field {
-  schema_hash: String,
-  type_name: String,
-  field_name: String =>
-  field_type_kind: String,
-  field_type_ref: String,
+  schema: String,
+  owner: String,
+  name: String =>
+  structure: String,
+  target: String,
   ordinal: Int,
   cardinality: String,
   phase: String,
@@ -130,9 +130,9 @@
 }
 
 :create schema_variant {
-  schema_hash: String,
-  type_name: String,
-  variant_name: String =>
+  schema: String,
+  owner: String,
+  name: String =>
   ordinal: Int,
   phase: String,
   dignity: String
@@ -140,22 +140,22 @@
 
 # Methods on interfaces
 :create schema_method {
-  schema_hash: String,
-  interface_name: String,
-  method_name: String =>
+  schema: String,
+  interface: String,
+  name: String =>
   ordinal: Int,
   phase: String,
   dignity: String
 }
 
-:create schema_method_param {
-  schema_hash: String,
-  interface_name: String,
-  method_name: String,
-  param_name: String =>
+:create schema_param {
+  schema: String,
+  interface: String,
+  method: String,
+  name: String =>
   direction: String,
-  param_type_kind: String,
-  param_type_ref: String,
+  structure: String,
+  target: String,
   ordinal: Int,
   phase: String,
   dignity: String
@@ -169,7 +169,7 @@
 # ═══════════════════════════════════════════════════════════════════════
 
 # What the LLM can ask (CSP event alphabet — request side)
-:create QueryKind {
+:create Query {
   name: String =>
   description: String,
   phase: String,
@@ -177,7 +177,7 @@
 }
 
 # What the harness responds with (CSP event alphabet — response side)
-:create ResponseKind {
+:create Response {
   name: String =>
   description: String,
   phase: String,
@@ -206,11 +206,11 @@
 :create session_turn {
   session_id: String,
   turn_id: Int =>
-  query_kind: String,
+  query: String,
   arg0: Int,
   arg1: Int,
   arg2: Int,
-  response_kind: String,
+  response: String,
   result_count: Int,
   latency_ms: Int,
   phase: String,
@@ -221,7 +221,7 @@
 :create trial {
   session_id: String,
   trial_id: Int =>
-  target_type: String,
+  target: String,
   target_ordinal: Int,
   expected_hash: String,
   actual_hash: String,

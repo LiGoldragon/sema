@@ -5,7 +5,7 @@
 # ─── Register new domains in the Domain registry ────────────────────
 
 ?[name, description, phase, dignity] <- [
-  ["Type", "Structural kind of a type — Sowa lattice atoms", "manifest", "eternal"],
+  ["Type", "Structural form of a type — Sowa lattice atoms", "manifest", "eternal"],
   ["Op", "All operators — logical, comparison, arithmetic (Frege primitives)", "manifest", "eternal"],
   ["Expr", "Abstract syntax constructors — Ranta GF AST nodes", "manifest", "eternal"],
   ["Control", "Control flow — Tesniere translation (category change)", "manifest", "eternal"],
@@ -16,8 +16,8 @@
   ["Quantifier", "Quantification over domains — Frege third primitive", "manifest", "eternal"],
   ["Evaluation", "Computation strategy — pratyaksa/anumana", "manifest", "eternal"],
   ["Cardinality", "Field multiplicity", "manifest", "eternal"],
-  ["QueryKind", "LLM query protocol event — CSP request alphabet", "manifest", "eternal"],
-  ["ResponseKind", "Harness response protocol event — CSP response alphabet", "manifest", "eternal"],
+  ["Query", "LLM query protocol event — CSP request alphabet", "manifest", "eternal"],
+  ["Response", "Harness response protocol event — CSP response alphabet", "manifest", "eternal"],
 ]
 :put Domain { name => description, phase, dignity }
 
@@ -25,18 +25,18 @@
 # Sowa lattice atoms + DOLCE foundational categories
 
 ?[name, description, phase, dignity] <- [
-  ["primitive", "Leaf scalar type — resolved by ScalarKind (bool, int, domain, data)", "manifest", "eternal"],
+  ["primitive", "Leaf scalar — resolved by Scalar (bool, int, domain, data)", "manifest", "eternal"],
   ["enum", "Finite domain — discrete category with named variants", "manifest", "eternal"],
-  ["struct", "Product type — Tesniere connexion, typed projections", "manifest", "eternal"],
-  ["union", "Coproduct type — Tesniere junction, tagged alternatives", "manifest", "eternal"],
+  ["struct", "Product — Tesniere connexion, typed projections", "manifest", "eternal"],
+  ["union", "Coproduct — Tesniere junction, tagged alternatives", "manifest", "eternal"],
   ["list", "Homogeneous sequence of typed elements", "manifest", "eternal"],
-  ["void", "Unit type — carries no data", "manifest", "eternal"],
+  ["void", "Unit — carries no data", "manifest", "eternal"],
 ]
 :put Type { name => description, phase, dignity }
 
 # ─── Op ──────────────────────────────────────────────────────────────
-# Frege: not + if_then + for_all generate all logic. Rest are derived but
-# kept as wire-format for efficiency. Partitioned by kind via Op -> Arity morphism.
+# Frege: not + implies + for_all generate all logic. Rest are derived but
+# kept as wire-format for efficiency. Partitioned via Op -> Arity morphism.
 
 ?[name, description, phase, dignity] <- [
   ["not", "Logical negation — Frege primitive 1", "manifest", "eternal"],
@@ -167,7 +167,7 @@
 ]
 :put Cardinality { name => description, phase, dignity }
 
-# ─── QueryKind ───────────────────────────────────────────────────────
+# ─── Query ───────────────────────────────────────────────────────────
 # CSP event alphabet — what the LLM can ask in a binary turn
 
 ?[name, description, phase, dignity] <- [
@@ -181,13 +181,13 @@
   ["encode", "Produce the binary encoding of a value", "manifest", "eternal"],
   ["reason", "Internal reasoning step — logged but not executed", "manifest", "eternal"],
 ]
-:put QueryKind { name => description, phase, dignity }
+:put Query { name => description, phase, dignity }
 
-# ─── ResponseKind ────────────────────────────────────────────────────
+# ─── Response ────────────────────────────────────────────────────────
 # CSP event alphabet — what the harness responds with
 
 ?[name, description, phase, dignity] <- [
-  ["type_list", "List of type names and kinds", "manifest", "eternal"],
+  ["type_list", "List of type names and structures", "manifest", "eternal"],
   ["type_description", "Fields or variants of a specific type", "manifest", "eternal"],
   ["domain_list", "List of domain enum names", "manifest", "eternal"],
   ["enum_description", "Variants of a specific domain enum", "manifest", "eternal"],
@@ -198,4 +198,4 @@
   ["reasoning_ack", "Acknowledgment of a reasoning step", "manifest", "eternal"],
   ["error", "Error response — invalid query or encoding failure", "manifest", "eternal"],
 ]
-:put ResponseKind { name => description, phase, dignity }
+:put Response { name => description, phase, dignity }
