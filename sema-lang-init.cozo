@@ -1,23 +1,13 @@
-# Sema Language Layer — String-Free Programming Logic
-# Three layers: (1) programming logic domains, (2) self-describing schema,
-# (3) query protocol. Plus training/testing session relations.
+# Sema Language Layer — Programming Logic + Protocol + Testing
+# Loads AFTER sema-core. Depends on: Phase, Dignity, Type, Scalar,
+# Cardinality, Direction, field, schema_*, Domain, morphism.
 #
-# Sema IS the typed schema layer. All relations here are consumed by
-# lojix-macros via include_str! and drive capnp codegen through samskara-codegen.
+# Load order: sema-core -> sema -> noesis
 
 # ═══════════════════════════════════════════════════════════════════════
-# LAYER 1 — Programming Logic Domains
+# Programming Logic Domains
 # The irreducible vocabulary for expressing computation and structure.
-# These become capnp enums via samskara-codegen. ~88 variants, 13 domains.
 # ═══════════════════════════════════════════════════════════════════════
-
-# What structural form a type has (Sowa lattice atoms, DOLCE foundational categories)
-:create Type {
-  name: String =>
-  description: String,
-  phase: String,
-  dignity: String
-}
 
 # All operators — logical, comparison, arithmetic (Frege primitives + extensions)
 :create Op {
@@ -91,84 +81,10 @@
   dignity: String
 }
 
-# Field multiplicity — how many values a field holds
-:create Cardinality {
-  name: String =>
-  description: String,
-  phase: String,
-  dignity: String
-}
-
 # ═══════════════════════════════════════════════════════════════════════
-# LAYER 2 — Self-Describing Schema (capnp in capnp)
-# Uses Layer 1 domains to describe capnp structure as samskara relations.
-# The LLM queries these to learn what types exist on demand.
-# Closes at 2 meta-levels (AMOP metaclass pattern).
+# Query Protocol — CSP traces over finite event alphabet
 # ═══════════════════════════════════════════════════════════════════════
 
-# A schema is a set of type definitions
-:create schema_entry {
-  schema: String,
-  name: String =>
-  structure: String,
-  ordinal: Int,
-  phase: String,
-  dignity: String
-}
-
-# Each type has fields (structs) or variants (enums)
-:create schema_field {
-  schema: String,
-  owner: String,
-  name: String =>
-  structure: String,
-  target: String,
-  ordinal: Int,
-  cardinality: String,
-  phase: String,
-  dignity: String
-}
-
-:create schema_variant {
-  schema: String,
-  owner: String,
-  name: String =>
-  ordinal: Int,
-  phase: String,
-  dignity: String
-}
-
-# Methods on interfaces
-:create schema_method {
-  schema: String,
-  interface: String,
-  name: String =>
-  ordinal: Int,
-  phase: String,
-  dignity: String
-}
-
-:create schema_param {
-  schema: String,
-  interface: String,
-  method: String,
-  name: String =>
-  direction: String,
-  structure: String,
-  target: String,
-  ordinal: Int,
-  phase: String,
-  dignity: String
-}
-
-# ═══════════════════════════════════════════════════════════════════════
-# LAYER 3 — Query Protocol
-# The LLM communicates with samskara through typed multi-turn protocol.
-# Each turn is a fixed-size capnp struct. No variable-length strings.
-# Protocol formalized as CSP traces over finite event alphabet.
-# ═══════════════════════════════════════════════════════════════════════
-
-# What the LLM can ask (CSP event alphabet — request side)
 :create Query {
   name: String =>
   description: String,
@@ -176,7 +92,6 @@
   dignity: String
 }
 
-# What the harness responds with (CSP event alphabet — response side)
 :create Response {
   name: String =>
   description: String,
@@ -185,11 +100,9 @@
 }
 
 # ═══════════════════════════════════════════════════════════════════════
-# TRAINING AND TESTING — Session logging for LLM binary experiments
-# Results tracked as relations for analysis. Every trial is a fact.
+# Training and Testing — session logging for LLM binary experiments
 # ═══════════════════════════════════════════════════════════════════════
 
-# A test session: one multi-turn conversation with an LLM
 :create session {
   session_id: String =>
   model: String,
@@ -202,7 +115,6 @@
   dignity: String
 }
 
-# One turn within a session
 :create session_turn {
   session_id: String,
   turn_id: Int =>
@@ -217,7 +129,6 @@
   dignity: String
 }
 
-# One encoding trial: LLM attempts to produce correct binary
 :create trial {
   session_id: String,
   trial_id: Int =>
@@ -233,7 +144,6 @@
   dignity: String
 }
 
-# Aggregate results per model across sessions
 :create model_score {
   model: String,
   schema_hash: String =>

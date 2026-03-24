@@ -1,27 +1,16 @@
-# Sema Language Layer — Field Type Classifications
-# Every column of every new relation classified as: domain, bool, int, or data.
-# No field left unclassified. No :Text on the wire.
+# Sema Language Layer — Field Classifications
+# Loads AFTER sema-core. Uses sema-core's `field` relation.
+# Only classifies sema's own relations (programming logic + protocol + testing).
 #
-# Conventions (same as noesis-schema):
-#   kind=domain, target_domain=DomainName         -> capnp enum reference
-#   kind=bool                                      -> capnp Bool
-#   kind=int, target_domain=Measure, unit_domain=U -> capnp TypedInt
-#   kind=data                                      -> capnp Data (content-addressed)
+# scalar: domain | bool | int | data
+# target: Domain name (when scalar=domain), Measure formula (when scalar=int)
+# unit: Unit domain name (when scalar=int)
 
 # ═══════════════════════════════════════════════════════════════════════
-# LAYER 1 — Programming Logic Domains
-# All are standard domain enums: (name, description, phase, dignity)
+# Programming Logic Domains — standard enum pattern
 # ═══════════════════════════════════════════════════════════════════════
 
-# Universal pattern: every domain enum has the same field types
-# name=data, description=data, phase=Phase, dignity=Dignity
-
-?[relation, column, kind, target_domain, unit_domain, description, phase, dignity] <- [
-  ["Type", "name", "data", "", "", "Variant name — wire discriminant", "manifest", "eternal"],
-  ["Type", "description", "data", "", "", "Human-readable description", "manifest", "eternal"],
-  ["Type", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "eternal"],
-  ["Type", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "eternal"],
-
+?[relation, column, scalar, target, unit, description, phase, dignity] <- [
   ["Op", "name", "data", "", "", "Operator name — wire discriminant", "manifest", "eternal"],
   ["Op", "description", "data", "", "", "Human-readable description", "manifest", "eternal"],
   ["Op", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "eternal"],
@@ -67,11 +56,6 @@
   ["Evaluation", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "eternal"],
   ["Evaluation", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "eternal"],
 
-  ["Cardinality", "name", "data", "", "", "Cardinality variant name", "manifest", "eternal"],
-  ["Cardinality", "description", "data", "", "", "Human-readable description", "manifest", "eternal"],
-  ["Cardinality", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "eternal"],
-  ["Cardinality", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "eternal"],
-
   ["Query", "name", "data", "", "", "Query variant name", "manifest", "eternal"],
   ["Query", "description", "data", "", "", "Human-readable description", "manifest", "eternal"],
   ["Query", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "eternal"],
@@ -82,62 +66,13 @@
   ["Response", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "eternal"],
   ["Response", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "eternal"],
 ]
-:put field_type { relation, column => kind, target_domain, unit_domain, description, phase, dignity }
+:put field { relation, column => scalar, target, unit, description, phase, dignity }
 
 # ═══════════════════════════════════════════════════════════════════════
-# LAYER 2 — Self-Describing Schema Relations
+# Training and Testing Relations
 # ═══════════════════════════════════════════════════════════════════════
 
-?[relation, column, kind, target_domain, unit_domain, description, phase, dignity] <- [
-  ["schema_entry", "schema", "data", "", "", "Content-addressed schema identifier", "manifest", "eternal"],
-  ["schema_entry", "name", "data", "", "", "Entry identifier within schema", "manifest", "eternal"],
-  ["schema_entry", "structure", "domain", "Type", "", "Structural form of the entry", "manifest", "eternal"],
-  ["schema_entry", "ordinal", "int", "L", "PositionUnit", "Position in schema", "manifest", "eternal"],
-  ["schema_entry", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "eternal"],
-  ["schema_entry", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "eternal"],
-
-  ["schema_field", "schema", "data", "", "", "Content-addressed schema identifier", "manifest", "eternal"],
-  ["schema_field", "owner", "data", "", "", "Owning entry identifier", "manifest", "eternal"],
-  ["schema_field", "name", "data", "", "", "Field identifier", "manifest", "eternal"],
-  ["schema_field", "structure", "domain", "Type", "", "Structural form of field", "manifest", "eternal"],
-  ["schema_field", "target", "data", "", "", "Reference (domain name or entry name)", "manifest", "eternal"],
-  ["schema_field", "ordinal", "int", "L", "PositionUnit", "Field ordinal in capnp layout", "manifest", "eternal"],
-  ["schema_field", "cardinality", "domain", "Cardinality", "", "How many values this field holds", "manifest", "eternal"],
-  ["schema_field", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "eternal"],
-  ["schema_field", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "eternal"],
-
-  ["schema_variant", "schema", "data", "", "", "Content-addressed schema identifier", "manifest", "eternal"],
-  ["schema_variant", "owner", "data", "", "", "Owning enum entry identifier", "manifest", "eternal"],
-  ["schema_variant", "name", "data", "", "", "Variant identifier", "manifest", "eternal"],
-  ["schema_variant", "ordinal", "int", "L", "PositionUnit", "Variant ordinal (capnp discriminant)", "manifest", "eternal"],
-  ["schema_variant", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "eternal"],
-  ["schema_variant", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "eternal"],
-
-  ["schema_method", "schema", "data", "", "", "Content-addressed schema identifier", "manifest", "eternal"],
-  ["schema_method", "interface", "data", "", "", "Interface identifier", "manifest", "eternal"],
-  ["schema_method", "name", "data", "", "", "Method identifier", "manifest", "eternal"],
-  ["schema_method", "ordinal", "int", "L", "PositionUnit", "Method ordinal", "manifest", "eternal"],
-  ["schema_method", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "eternal"],
-  ["schema_method", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "eternal"],
-
-  ["schema_param", "schema", "data", "", "", "Content-addressed schema identifier", "manifest", "eternal"],
-  ["schema_param", "interface", "data", "", "", "Interface identifier", "manifest", "eternal"],
-  ["schema_param", "method", "data", "", "", "Method identifier", "manifest", "eternal"],
-  ["schema_param", "name", "data", "", "", "Parameter identifier", "manifest", "eternal"],
-  ["schema_param", "direction", "domain", "Direction", "", "Request or response", "manifest", "eternal"],
-  ["schema_param", "structure", "domain", "Type", "", "Structural form of parameter", "manifest", "eternal"],
-  ["schema_param", "target", "data", "", "", "Reference for parameter", "manifest", "eternal"],
-  ["schema_param", "ordinal", "int", "L", "PositionUnit", "Parameter ordinal", "manifest", "eternal"],
-  ["schema_param", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "eternal"],
-  ["schema_param", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "eternal"],
-]
-:put field_type { relation, column => kind, target_domain, unit_domain, description, phase, dignity }
-
-# ═══════════════════════════════════════════════════════════════════════
-# LAYER 3 + TRAINING — Session and Trial Relations
-# ═══════════════════════════════════════════════════════════════════════
-
-?[relation, column, kind, target_domain, unit_domain, description, phase, dignity] <- [
+?[relation, column, scalar, target, unit, description, phase, dignity] <- [
   ["session", "session_id", "data", "", "", "Content-addressed session identifier", "manifest", "eternal"],
   ["session", "model", "data", "", "", "LLM model identifier", "manifest", "eternal"],
   ["session", "schema_hash", "data", "", "", "Schema hash used in this session", "manifest", "eternal"],
@@ -149,9 +84,9 @@
   ["session", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "eternal"],
 
   ["session_turn", "session_id", "data", "", "", "Parent session identifier", "manifest", "eternal"],
-  ["session_turn", "turn_id", "int", "L", "PositionUnit", "Turn sequence number within session", "manifest", "eternal"],
+  ["session_turn", "turn_id", "int", "L", "PositionUnit", "Turn sequence number", "manifest", "eternal"],
   ["session_turn", "query", "domain", "Query", "", "What the LLM asked", "manifest", "eternal"],
-  ["session_turn", "arg0", "int", "L", "PositionUnit", "Primary argument (ordinal)", "manifest", "eternal"],
+  ["session_turn", "arg0", "int", "L", "PositionUnit", "Primary argument", "manifest", "eternal"],
   ["session_turn", "arg1", "int", "L", "PositionUnit", "Secondary argument", "manifest", "eternal"],
   ["session_turn", "arg2", "int", "L", "PositionUnit", "Tertiary argument", "manifest", "eternal"],
   ["session_turn", "response", "domain", "Response", "", "What the harness responded with", "manifest", "eternal"],
@@ -183,4 +118,4 @@
   ["model_score", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "eternal"],
   ["model_score", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "eternal"],
 ]
-:put field_type { relation, column => kind, target_domain, unit_domain, description, phase, dignity }
+:put field { relation, column => scalar, target, unit, description, phase, dignity }

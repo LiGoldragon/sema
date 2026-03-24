@@ -1,11 +1,10 @@
 # Sema Language Layer — Domain Variant Seeds
-# Registers 13 new domains in the Domain registry, then seeds all variants.
-# ~95 new variants across programming logic, protocol, and cardinality domains.
+# Loads AFTER sema-core. Type, Scalar, Cardinality, Direction are in sema-core.
+# Registers 11 new domains, seeds ~75 variants.
 
 # ─── Register new domains in the Domain registry ────────────────────
 
 ?[name, description, phase, dignity] <- [
-  ["Type", "Structural form of a type — Sowa lattice atoms", "manifest", "eternal"],
   ["Op", "All operators — logical, comparison, arithmetic (Frege primitives)", "manifest", "eternal"],
   ["Expr", "Abstract syntax constructors — Ranta GF AST nodes", "manifest", "eternal"],
   ["Control", "Control flow — Tesniere translation (category change)", "manifest", "eternal"],
@@ -15,24 +14,10 @@
   ["Pattern", "Exclusion-based pattern matching — Dignaga apoha", "manifest", "eternal"],
   ["Quantifier", "Quantification over domains — Frege third primitive", "manifest", "eternal"],
   ["Evaluation", "Computation strategy — pratyaksa/anumana", "manifest", "eternal"],
-  ["Cardinality", "Field multiplicity", "manifest", "eternal"],
   ["Query", "LLM query protocol event — CSP request alphabet", "manifest", "eternal"],
   ["Response", "Harness response protocol event — CSP response alphabet", "manifest", "eternal"],
 ]
 :put Domain { name => description, phase, dignity }
-
-# ─── Type ────────────────────────────────────────────────────────────
-# Sowa lattice atoms + DOLCE foundational categories
-
-?[name, description, phase, dignity] <- [
-  ["primitive", "Leaf scalar — resolved by Scalar (bool, int, domain, data)", "manifest", "eternal"],
-  ["enum", "Finite domain — discrete category with named variants", "manifest", "eternal"],
-  ["struct", "Product — Tesniere connexion, typed projections", "manifest", "eternal"],
-  ["union", "Coproduct — Tesniere junction, tagged alternatives", "manifest", "eternal"],
-  ["list", "Homogeneous sequence of typed elements", "manifest", "eternal"],
-  ["void", "Unit — carries no data", "manifest", "eternal"],
-]
-:put Type { name => description, phase, dignity }
 
 # ─── Op ──────────────────────────────────────────────────────────────
 # Frege: not + implies + for_all generate all logic. Rest are derived but
@@ -155,17 +140,6 @@
   ["parallel", "Evaluate concurrently — CSP parallel composition", "manifest", "eternal"],
 ]
 :put Evaluation { name => description, phase, dignity }
-
-# ─── Cardinality ─────────────────────────────────────────────────────
-# How many values a schema field holds
-
-?[name, description, phase, dignity] <- [
-  ["one", "Exactly one value — required field", "manifest", "eternal"],
-  ["optional", "Zero or one value", "manifest", "eternal"],
-  ["many", "Zero or more values — list", "manifest", "eternal"],
-  ["map", "Key-value pairs — associative", "manifest", "eternal"],
-]
-:put Cardinality { name => description, phase, dignity }
 
 # ─── Query ───────────────────────────────────────────────────────────
 # CSP event alphabet — what the LLM can ask in a binary turn
