@@ -1,0 +1,201 @@
+# Sema Language Layer — Domain Variant Seeds
+# Registers 13 new domains in the Domain registry, then seeds all variants.
+# ~95 new variants across programming logic, protocol, and cardinality domains.
+
+# ─── Register new domains in the Domain registry ────────────────────
+
+?[name, description, phase, dignity] <- [
+  ["Type", "Structural kind of a type — Sowa lattice atoms", "manifest", "eternal"],
+  ["Op", "All operators — logical, comparison, arithmetic (Frege primitives)", "manifest", "eternal"],
+  ["Expr", "Abstract syntax constructors — Ranta GF AST nodes", "manifest", "eternal"],
+  ["Control", "Control flow — Tesniere translation (category change)", "manifest", "eternal"],
+  ["Ownership", "Memory ownership semantics", "manifest", "eternal"],
+  ["Binding", "Variable binding mode — Ranta dependent type context", "manifest", "eternal"],
+  ["Arity", "Operator valency — Tesniere", "manifest", "eternal"],
+  ["Pattern", "Exclusion-based pattern matching — Dignaga apoha", "manifest", "eternal"],
+  ["Quantifier", "Quantification over domains — Frege third primitive", "manifest", "eternal"],
+  ["Evaluation", "Computation strategy — pratyaksa/anumana", "manifest", "eternal"],
+  ["Cardinality", "Field multiplicity", "manifest", "eternal"],
+  ["QueryKind", "LLM query protocol event — CSP request alphabet", "manifest", "eternal"],
+  ["ResponseKind", "Harness response protocol event — CSP response alphabet", "manifest", "eternal"],
+]
+:put Domain { name => description, phase, dignity }
+
+# ─── Type ────────────────────────────────────────────────────────────
+# Sowa lattice atoms + DOLCE foundational categories
+
+?[name, description, phase, dignity] <- [
+  ["primitive", "Leaf scalar type — resolved by ScalarKind (bool, int, domain, data)", "manifest", "eternal"],
+  ["enum", "Finite domain — discrete category with named variants", "manifest", "eternal"],
+  ["struct", "Product type — Tesniere connexion, typed projections", "manifest", "eternal"],
+  ["union", "Coproduct type — Tesniere junction, tagged alternatives", "manifest", "eternal"],
+  ["list", "Homogeneous sequence of typed elements", "manifest", "eternal"],
+  ["void", "Unit type — carries no data", "manifest", "eternal"],
+]
+:put Type { name => description, phase, dignity }
+
+# ─── Op ──────────────────────────────────────────────────────────────
+# Frege: not + if_then + for_all generate all logic. Rest are derived but
+# kept as wire-format for efficiency. Partitioned by kind via Op -> Arity morphism.
+
+?[name, description, phase, dignity] <- [
+  ["not", "Logical negation — Frege primitive 1", "manifest", "eternal"],
+  ["and", "Logical conjunction", "manifest", "eternal"],
+  ["or", "Logical disjunction", "manifest", "eternal"],
+  ["implies", "Material conditional — Frege primitive 2", "manifest", "eternal"],
+  ["iff", "Biconditional — if and only if", "manifest", "eternal"],
+  ["xor", "Exclusive disjunction", "manifest", "eternal"],
+  ["eq", "Equality comparison", "manifest", "eternal"],
+  ["neq", "Inequality comparison", "manifest", "eternal"],
+  ["lt", "Less than", "manifest", "eternal"],
+  ["gt", "Greater than", "manifest", "eternal"],
+  ["lte", "Less than or equal", "manifest", "eternal"],
+  ["gte", "Greater than or equal", "manifest", "eternal"],
+  ["add", "Arithmetic addition", "manifest", "eternal"],
+  ["sub", "Arithmetic subtraction", "manifest", "eternal"],
+  ["mul", "Arithmetic multiplication", "manifest", "eternal"],
+  ["div", "Arithmetic division", "manifest", "eternal"],
+  ["mod", "Arithmetic modulus", "manifest", "eternal"],
+  ["negate", "Arithmetic negation (unary minus)", "manifest", "eternal"],
+]
+:put Op { name => description, phase, dignity }
+
+# ─── Expr ────────────────────────────────────────────────────────────
+# Ranta abstract syntax constructors — the AST IS the capnp message
+
+?[name, description, phase, dignity] <- [
+  ["literal", "Constant value — bool, int, or domain discriminant", "manifest", "eternal"],
+  ["ref", "Variable reference — typed by binding context (structural, not nominal)", "manifest", "eternal"],
+  ["unary_op", "Unary operation — Op with Arity=unary applied to one Expr", "manifest", "eternal"],
+  ["binary_op", "Binary operation — Op with Arity=binary applied to two Exprs", "manifest", "eternal"],
+  ["apply", "Function/method application", "manifest", "eternal"],
+  ["let_bind", "Let binding — introduces a named value into scope", "manifest", "eternal"],
+  ["match", "Pattern match — Dignaga apoha: exhaustive exclusion", "manifest", "eternal"],
+  ["block", "Sequence of expressions — last is the value", "manifest", "eternal"],
+]
+:put Expr { name => description, phase, dignity }
+
+# ─── Control ─────────────────────────────────────────────────────────
+# Tesniere translation — changes the category of an expression
+
+?[name, description, phase, dignity] <- [
+  ["if", "Conditional branch — trivalent (condition, then, else)", "manifest", "eternal"],
+  ["loop", "Iteration — repeats until break", "manifest", "eternal"],
+  ["return", "Early return from enclosing scope", "manifest", "eternal"],
+  ["break", "Exit enclosing loop", "manifest", "eternal"],
+  ["continue", "Skip to next loop iteration", "manifest", "eternal"],
+  ["sequence", "Ordered execution of expressions", "manifest", "eternal"],
+]
+:put Control { name => description, phase, dignity }
+
+# ─── Ownership ───────────────────────────────────────────────────────
+# Tesniere translation applied to memory — how values move between scopes
+
+?[name, description, phase, dignity] <- [
+  ["own", "Exclusive ownership — single owner, move semantics", "manifest", "eternal"],
+  ["borrow", "Shared immutable reference", "manifest", "eternal"],
+  ["borrow_mut", "Exclusive mutable reference", "manifest", "eternal"],
+  ["move", "Transfer of ownership to new scope", "manifest", "eternal"],
+  ["copy", "Bitwise duplication — no ownership transfer", "manifest", "eternal"],
+]
+:put Ownership { name => description, phase, dignity }
+
+# ─── Binding ─────────────────────────────────────────────────────────
+# Ranta dependent type context — how variables are bound
+
+?[name, description, phase, dignity] <- [
+  ["immutable", "Cannot be reassigned after binding", "manifest", "eternal"],
+  ["mutable", "Can be reassigned within scope", "manifest", "eternal"],
+  ["constant", "Compile-time constant — resolved before evaluation", "manifest", "eternal"],
+]
+:put Binding { name => description, phase, dignity }
+
+# ─── Arity ───────────────────────────────────────────────────────────
+# Tesniere valency — structural property of operators
+
+?[name, description, phase, dignity] <- [
+  ["nullary", "Zero arguments — constants, literals", "manifest", "eternal"],
+  ["unary", "One argument — not, negate", "manifest", "eternal"],
+  ["binary", "Two arguments — add, eq, and", "manifest", "eternal"],
+  ["ternary", "Three arguments — if-then-else", "manifest", "eternal"],
+  ["variadic", "Variable number of arguments — block, sequence", "manifest", "eternal"],
+]
+:put Arity { name => description, phase, dignity }
+
+# ─── Pattern ─────────────────────────────────────────────────────────
+# Dignaga apoha — identity by exclusion
+
+?[name, description, phase, dignity] <- [
+  ["wildcard", "Matches anything — excludes nothing", "manifest", "eternal"],
+  ["literal", "Matches one specific value — excludes all others", "manifest", "eternal"],
+  ["variant", "Matches one enum variant — excludes all other variants", "manifest", "eternal"],
+  ["destructure", "Matches a struct and binds its fields", "manifest", "eternal"],
+  ["guard", "Matches conditionally — excludes values failing predicate", "manifest", "eternal"],
+]
+:put Pattern { name => description, phase, dignity }
+
+# ─── Quantifier ──────────────────────────────────────────────────────
+# Frege third primitive — quantification over domains
+
+?[name, description, phase, dignity] <- [
+  ["for_all", "Universal — holds for every element of a domain", "manifest", "eternal"],
+  ["exists", "Existential — holds for at least one element", "manifest", "eternal"],
+  ["unique", "Uniqueness — holds for exactly one element", "manifest", "eternal"],
+  ["none", "Null quantifier — holds for no element", "manifest", "eternal"],
+]
+:put Quantifier { name => description, phase, dignity }
+
+# ─── Evaluation ──────────────────────────────────────────────────────
+# Computation strategy — Dignaga pratyaksa (direct) vs anumana (deferred)
+
+?[name, description, phase, dignity] <- [
+  ["strict", "Evaluate immediately — pratyaksa, direct apprehension", "manifest", "eternal"],
+  ["lazy", "Evaluate on demand — deferred until needed", "manifest", "eternal"],
+  ["memoized", "Evaluate once, cache result — proven becomes eternal", "manifest", "eternal"],
+  ["parallel", "Evaluate concurrently — CSP parallel composition", "manifest", "eternal"],
+]
+:put Evaluation { name => description, phase, dignity }
+
+# ─── Cardinality ─────────────────────────────────────────────────────
+# How many values a schema field holds
+
+?[name, description, phase, dignity] <- [
+  ["one", "Exactly one value — required field", "manifest", "eternal"],
+  ["optional", "Zero or one value", "manifest", "eternal"],
+  ["many", "Zero or more values — list", "manifest", "eternal"],
+  ["map", "Key-value pairs — associative", "manifest", "eternal"],
+]
+:put Cardinality { name => description, phase, dignity }
+
+# ─── QueryKind ───────────────────────────────────────────────────────
+# CSP event alphabet — what the LLM can ask in a binary turn
+
+?[name, description, phase, dignity] <- [
+  ["list_types", "What types exist in this schema?", "manifest", "eternal"],
+  ["describe_type", "What fields/variants does this type have?", "manifest", "eternal"],
+  ["list_domains", "What domain enums exist?", "manifest", "eternal"],
+  ["describe_enum", "What variants does this enum have?", "manifest", "eternal"],
+  ["list_methods", "What methods does this interface have?", "manifest", "eternal"],
+  ["assert_fact", "Store a fact in the world model", "manifest", "eternal"],
+  ["query_facts", "Retrieve facts matching a pattern", "manifest", "eternal"],
+  ["encode", "Produce the binary encoding of a value", "manifest", "eternal"],
+  ["reason", "Internal reasoning step — logged but not executed", "manifest", "eternal"],
+]
+:put QueryKind { name => description, phase, dignity }
+
+# ─── ResponseKind ────────────────────────────────────────────────────
+# CSP event alphabet — what the harness responds with
+
+?[name, description, phase, dignity] <- [
+  ["type_list", "List of type names and kinds", "manifest", "eternal"],
+  ["type_description", "Fields or variants of a specific type", "manifest", "eternal"],
+  ["domain_list", "List of domain enum names", "manifest", "eternal"],
+  ["enum_description", "Variants of a specific domain enum", "manifest", "eternal"],
+  ["method_list", "Methods of a specific interface", "manifest", "eternal"],
+  ["fact_asserted", "Confirmation that a fact was stored", "manifest", "eternal"],
+  ["fact_results", "Facts matching a query pattern", "manifest", "eternal"],
+  ["encoded", "Binary encoding of a requested value", "manifest", "eternal"],
+  ["reasoning_ack", "Acknowledgment of a reasoning step", "manifest", "eternal"],
+  ["error", "Error response — invalid query or encoding failure", "manifest", "eternal"],
+]
+:put ResponseKind { name => description, phase, dignity }
