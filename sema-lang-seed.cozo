@@ -229,3 +229,20 @@
   ["Evaluation", "lazy", "Element", "water", "manifest", "space"],
 ]
 :put name { domain, variant, generator, position => phase, dignity }
+
+# ═══════════════════════════════════════════════════════════════════════
+# Morphisms — programming logic domain connections
+# ═══════════════════════════════════════════════════════════════════════
+
+?[source, target, via, functor, description, phase, dignity] <- [
+  ["Op", "Arity", "valency", "deterministic", "Each op has fixed valency", "manifest", "space"],
+  ["Expr", "Type", "produces", "deterministic", "Each expr produces a type", "manifest", "space"],
+  ["Control", "Expr", "wraps", "deterministic", "Each control wraps expressions", "manifest", "space"],
+  ["Ownership", "Dignity", "generator", "deterministic", "5-domain aligned with Dignity", "manifest", "space"],
+  ["Arity", "Dignity", "generator", "deterministic", "5-domain aligned with Dignity", "manifest", "space"],
+  ["Pattern", "Dignity", "generator", "deterministic", "5-domain aligned with Dignity", "manifest", "space"],
+  ["Binding", "Modality", "generator", "deterministic", "3-domain aligned with Modality", "manifest", "space"],
+  ["Quantifier", "Element", "generator", "deterministic", "4-domain aligned with Element", "manifest", "space"],
+  ["Evaluation", "Element", "generator", "deterministic", "4-domain aligned with Element", "manifest", "space"],
+]
+:put morphism { source, target, via => functor, description, phase, dignity }
