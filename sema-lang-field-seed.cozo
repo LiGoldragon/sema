@@ -1,121 +1,92 @@
 # Sema Language Layer — Field Classifications
-# Loads AFTER sema-core. Uses sema-core's `field` relation.
-# Only classifies sema's own relations (programming logic + protocol + testing).
-#
-# scalar: domain | bool | int | data
-# target: Domain name (when scalar=domain), Measure formula (when scalar=int)
-# unit: Unit domain name (when scalar=int)
+# Loads AFTER sema-core. Uses sema-core field relation.
+# No blank lines inside data blocks (cozo splits on blank lines).
 
-# ═══════════════════════════════════════════════════════════════════════
-# Programming Logic Domains — standard enum pattern
-# ═══════════════════════════════════════════════════════════════════════
-
-?[relation, column, scalar, target, unit, description, phase, dignity] <- [
-  ["Op", "name", "data", "", "", "Operator name — wire discriminant", "manifest", "space"],
-  ["Op", "description", "data", "", "", "Human-readable description", "manifest", "space"],
+?[relation, column, kind, target_domain, unit_domain, description, phase, dignity] <- [
+  ["Op", "name", "data", "", "", "Operator name", "manifest", "space"],
+  ["Op", "description", "data", "", "", "Description", "manifest", "space"],
   ["Op", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "space"],
-  ["Op", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "space"],
-
-  ["Expr", "name", "data", "", "", "Expression constructor name", "manifest", "space"],
-  ["Expr", "description", "data", "", "", "Human-readable description", "manifest", "space"],
+  ["Op", "dignity", "domain", "Dignity", "", "Quality of fitness", "manifest", "space"],
+  ["Expr", "name", "data", "", "", "Constructor name", "manifest", "space"],
+  ["Expr", "description", "data", "", "", "Description", "manifest", "space"],
   ["Expr", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "space"],
-  ["Expr", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "space"],
-
-  ["Control", "name", "data", "", "", "Control flow variant name", "manifest", "space"],
-  ["Control", "description", "data", "", "", "Human-readable description", "manifest", "space"],
+  ["Expr", "dignity", "domain", "Dignity", "", "Quality of fitness", "manifest", "space"],
+  ["Control", "name", "data", "", "", "Variant name", "manifest", "space"],
+  ["Control", "description", "data", "", "", "Description", "manifest", "space"],
   ["Control", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "space"],
-  ["Control", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "space"],
-
-  ["Ownership", "name", "data", "", "", "Ownership mode name", "manifest", "space"],
-  ["Ownership", "description", "data", "", "", "Human-readable description", "manifest", "space"],
+  ["Control", "dignity", "domain", "Dignity", "", "Quality of fitness", "manifest", "space"],
+  ["Ownership", "name", "data", "", "", "Variant name", "manifest", "space"],
+  ["Ownership", "description", "data", "", "", "Description", "manifest", "space"],
   ["Ownership", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "space"],
-  ["Ownership", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "space"],
-
-  ["Binding", "name", "data", "", "", "Binding mode name", "manifest", "space"],
-  ["Binding", "description", "data", "", "", "Human-readable description", "manifest", "space"],
+  ["Ownership", "dignity", "domain", "Dignity", "", "Quality of fitness", "manifest", "space"],
+  ["Binding", "name", "data", "", "", "Variant name", "manifest", "space"],
+  ["Binding", "description", "data", "", "", "Description", "manifest", "space"],
   ["Binding", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "space"],
-  ["Binding", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "space"],
-
-  ["Arity", "name", "data", "", "", "Arity variant name", "manifest", "space"],
-  ["Arity", "description", "data", "", "", "Human-readable description", "manifest", "space"],
+  ["Binding", "dignity", "domain", "Dignity", "", "Quality of fitness", "manifest", "space"],
+  ["Arity", "name", "data", "", "", "Variant name", "manifest", "space"],
+  ["Arity", "description", "data", "", "", "Description", "manifest", "space"],
   ["Arity", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "space"],
-  ["Arity", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "space"],
-
-  ["Pattern", "name", "data", "", "", "Pattern variant name", "manifest", "space"],
-  ["Pattern", "description", "data", "", "", "Human-readable description", "manifest", "space"],
+  ["Arity", "dignity", "domain", "Dignity", "", "Quality of fitness", "manifest", "space"],
+  ["Pattern", "name", "data", "", "", "Variant name", "manifest", "space"],
+  ["Pattern", "description", "data", "", "", "Description", "manifest", "space"],
   ["Pattern", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "space"],
-  ["Pattern", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "space"],
-
-  ["Quantifier", "name", "data", "", "", "Quantifier variant name", "manifest", "space"],
-  ["Quantifier", "description", "data", "", "", "Human-readable description", "manifest", "space"],
+  ["Pattern", "dignity", "domain", "Dignity", "", "Quality of fitness", "manifest", "space"],
+  ["Quantifier", "name", "data", "", "", "Variant name", "manifest", "space"],
+  ["Quantifier", "description", "data", "", "", "Description", "manifest", "space"],
   ["Quantifier", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "space"],
-  ["Quantifier", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "space"],
-
-  ["Evaluation", "name", "data", "", "", "Evaluation strategy name", "manifest", "space"],
-  ["Evaluation", "description", "data", "", "", "Human-readable description", "manifest", "space"],
+  ["Quantifier", "dignity", "domain", "Dignity", "", "Quality of fitness", "manifest", "space"],
+  ["Evaluation", "name", "data", "", "", "Variant name", "manifest", "space"],
+  ["Evaluation", "description", "data", "", "", "Description", "manifest", "space"],
   ["Evaluation", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "space"],
-  ["Evaluation", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "space"],
-
-  ["Query", "name", "data", "", "", "Query variant name", "manifest", "space"],
-  ["Query", "description", "data", "", "", "Human-readable description", "manifest", "space"],
+  ["Evaluation", "dignity", "domain", "Dignity", "", "Quality of fitness", "manifest", "space"],
+  ["Query", "name", "data", "", "", "Variant name", "manifest", "space"],
+  ["Query", "description", "data", "", "", "Description", "manifest", "space"],
   ["Query", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "space"],
-  ["Query", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "space"],
-
-  ["Response", "name", "data", "", "", "Response variant name", "manifest", "space"],
-  ["Response", "description", "data", "", "", "Human-readable description", "manifest", "space"],
+  ["Query", "dignity", "domain", "Dignity", "", "Quality of fitness", "manifest", "space"],
+  ["Response", "name", "data", "", "", "Variant name", "manifest", "space"],
+  ["Response", "description", "data", "", "", "Description", "manifest", "space"],
   ["Response", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "space"],
-  ["Response", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "space"],
-]
-:put field { relation, column => scalar, target, unit, description, phase, dignity }
-
-# ═══════════════════════════════════════════════════════════════════════
-# Training and Testing Relations
-# ═══════════════════════════════════════════════════════════════════════
-
-?[relation, column, scalar, target, unit, description, phase, dignity] <- [
-  ["session", "session_id", "data", "", "", "Content-addressed session identifier", "manifest", "space"],
+  ["Response", "dignity", "domain", "Dignity", "", "Quality of fitness", "manifest", "space"],
+  ["session", "session_id", "data", "", "", "Session identifier", "manifest", "space"],
   ["session", "model", "data", "", "", "LLM model identifier", "manifest", "space"],
-  ["session", "schema_hash", "data", "", "", "Schema hash used in this session", "manifest", "space"],
-  ["session", "domain_count", "int", "ML/T²", "CountUnit", "Number of domains in schema", "manifest", "space"],
-  ["session", "variant_count", "int", "ML/T²", "CountUnit", "Number of total variants", "manifest", "space"],
-  ["session", "started_ts", "data", "", "", "ISO 8601 session start timestamp", "manifest", "space"],
-  ["session", "ended_ts", "data", "", "", "ISO 8601 session end timestamp", "manifest", "space"],
+  ["session", "schema_hash", "data", "", "", "Schema hash", "manifest", "space"],
+  ["session", "domain_count", "int", "ML/T^2", "CountUnit", "Domain count", "manifest", "space"],
+  ["session", "variant_count", "int", "ML/T^2", "CountUnit", "Variant count", "manifest", "space"],
+  ["session", "started_ts", "data", "", "", "Start timestamp", "manifest", "space"],
+  ["session", "ended_ts", "data", "", "", "End timestamp", "manifest", "space"],
   ["session", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "space"],
-  ["session", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "space"],
-
-  ["session_turn", "session_id", "data", "", "", "Parent session identifier", "manifest", "space"],
-  ["session_turn", "turn_id", "int", "L", "PositionUnit", "Turn sequence number", "manifest", "space"],
-  ["session_turn", "query", "domain", "Query", "", "What the LLM asked", "manifest", "space"],
+  ["session", "dignity", "domain", "Dignity", "", "Quality of fitness", "manifest", "space"],
+  ["session_turn", "session_id", "data", "", "", "Parent session", "manifest", "space"],
+  ["session_turn", "turn_id", "int", "L", "PositionUnit", "Turn number", "manifest", "space"],
+  ["session_turn", "query", "domain", "Query", "", "Query kind", "manifest", "space"],
   ["session_turn", "arg0", "int", "L", "PositionUnit", "Primary argument", "manifest", "space"],
   ["session_turn", "arg1", "int", "L", "PositionUnit", "Secondary argument", "manifest", "space"],
   ["session_turn", "arg2", "int", "L", "PositionUnit", "Tertiary argument", "manifest", "space"],
-  ["session_turn", "response", "domain", "Response", "", "What the harness responded with", "manifest", "space"],
-  ["session_turn", "result_count", "int", "ML/T²", "CountUnit", "Number of results returned", "manifest", "space"],
-  ["session_turn", "latency_ms", "int", "ML²/T³", "TimeUnit", "Response latency in milliseconds", "manifest", "space"],
+  ["session_turn", "response", "domain", "Response", "", "Response kind", "manifest", "space"],
+  ["session_turn", "result_count", "int", "ML/T^2", "CountUnit", "Result count", "manifest", "space"],
+  ["session_turn", "latency_ms", "int", "ML^2/T^3", "TimeUnit", "Latency ms", "manifest", "space"],
   ["session_turn", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "space"],
-  ["session_turn", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "space"],
-
-  ["trial", "session_id", "data", "", "", "Parent session identifier", "manifest", "space"],
-  ["trial", "trial_id", "int", "L", "PositionUnit", "Trial sequence number", "manifest", "space"],
-  ["trial", "target", "data", "", "", "Name the LLM attempted to encode", "manifest", "space"],
-  ["trial", "target_ordinal", "int", "L", "PositionUnit", "Ordinal of target in schema", "manifest", "space"],
-  ["trial", "expected_hash", "data", "", "", "Blake3 hash of expected binary output", "manifest", "space"],
-  ["trial", "actual_hash", "data", "", "", "Blake3 hash of actual LLM output", "manifest", "space"],
-  ["trial", "expected_size", "int", "ML²", "SizeUnit", "Expected binary size in bytes", "manifest", "space"],
-  ["trial", "actual_size", "int", "ML²", "SizeUnit", "Actual binary size in bytes", "manifest", "space"],
-  ["trial", "pass", "bool", "", "", "Whether expected_hash == actual_hash", "manifest", "space"],
-  ["trial", "byte_errors", "int", "ML/T²", "CountUnit", "Number of incorrect bytes", "manifest", "space"],
+  ["session_turn", "dignity", "domain", "Dignity", "", "Quality of fitness", "manifest", "space"],
+  ["trial", "session_id", "data", "", "", "Parent session", "manifest", "space"],
+  ["trial", "trial_id", "int", "L", "PositionUnit", "Trial number", "manifest", "space"],
+  ["trial", "target", "data", "", "", "Target name", "manifest", "space"],
+  ["trial", "target_ordinal", "int", "L", "PositionUnit", "Target ordinal", "manifest", "space"],
+  ["trial", "expected_hash", "data", "", "", "Expected hash", "manifest", "space"],
+  ["trial", "actual_hash", "data", "", "", "Actual hash", "manifest", "space"],
+  ["trial", "expected_size", "int", "ML^2", "SizeUnit", "Expected size", "manifest", "space"],
+  ["trial", "actual_size", "int", "ML^2", "SizeUnit", "Actual size", "manifest", "space"],
+  ["trial", "pass", "bool", "", "", "Pass/fail", "manifest", "space"],
+  ["trial", "byte_errors", "int", "ML/T^2", "CountUnit", "Byte errors", "manifest", "space"],
   ["trial", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "space"],
-  ["trial", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "space"],
-
-  ["model_score", "model", "data", "", "", "LLM model identifier", "manifest", "space"],
-  ["model_score", "schema_hash", "data", "", "", "Schema hash scored against", "manifest", "space"],
-  ["model_score", "total_trials", "int", "ML/T²", "CountUnit", "Total encoding trials attempted", "manifest", "space"],
-  ["model_score", "pass_count", "int", "ML/T²", "CountUnit", "Number of trials that passed", "manifest", "space"],
-  ["model_score", "fail_count", "int", "ML/T²", "CountUnit", "Number of trials that failed", "manifest", "space"],
-  ["model_score", "mean_byte_errors", "int", "ML/T²", "CountUnit", "Average byte errors across failures", "manifest", "space"],
-  ["model_score", "last_session_ts", "data", "", "", "Timestamp of most recent session", "manifest", "space"],
+  ["trial", "dignity", "domain", "Dignity", "", "Quality of fitness", "manifest", "space"],
+  ["model_score", "model", "data", "", "", "Model identifier", "manifest", "space"],
+  ["model_score", "schema_hash", "data", "", "", "Schema hash", "manifest", "space"],
+  ["model_score", "total_trials", "int", "ML/T^2", "CountUnit", "Total trials", "manifest", "space"],
+  ["model_score", "pass_count", "int", "ML/T^2", "CountUnit", "Pass count", "manifest", "space"],
+  ["model_score", "fail_count", "int", "ML/T^2", "CountUnit", "Fail count", "manifest", "space"],
+  ["model_score", "mean_byte_errors", "int", "ML/T^2", "CountUnit", "Mean errors", "manifest", "space"],
+  ["model_score", "last_session_ts", "data", "", "", "Last session", "manifest", "space"],
   ["model_score", "phase", "domain", "Phase", "", "Lifecycle phase", "manifest", "space"],
-  ["model_score", "dignity", "domain", "Dignity", "", "Epistemological trust", "manifest", "space"],
+  ["model_score", "dignity", "domain", "Dignity", "", "Quality of fitness", "manifest", "space"],
 ]
-:put field { relation, column => scalar, target, unit, description, phase, dignity }
+:put field_type { relation, column => kind, target_domain, unit_domain, description, phase, dignity }
