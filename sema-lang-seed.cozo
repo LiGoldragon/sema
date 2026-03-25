@@ -5,17 +5,17 @@
 # ─── Register new domains in the Domain registry ────────────────────
 
 ?[name, description, phase, dignity] <- [
-  ["Op", "All operators — logical, comparison, arithmetic (Frege primitives)", "manifest", "eternal"],
-  ["Expr", "Abstract syntax constructors — Ranta GF AST nodes", "manifest", "eternal"],
-  ["Control", "Control flow — Tesniere translation (category change)", "manifest", "eternal"],
-  ["Ownership", "Memory ownership semantics", "manifest", "eternal"],
-  ["Binding", "Variable binding mode — Ranta dependent type context", "manifest", "eternal"],
-  ["Arity", "Operator valency — Tesniere", "manifest", "eternal"],
-  ["Pattern", "Exclusion-based pattern matching — Dignaga apoha", "manifest", "eternal"],
-  ["Quantifier", "Quantification over domains — Frege third primitive", "manifest", "eternal"],
-  ["Evaluation", "Computation strategy — pratyaksa/anumana", "manifest", "eternal"],
-  ["Query", "LLM query protocol event — CSP request alphabet", "manifest", "eternal"],
-  ["Response", "Harness response protocol event — CSP response alphabet", "manifest", "eternal"],
+  ["Op", "All operators — logical, comparison, arithmetic (Frege primitives)", "manifest", "space"],
+  ["Expr", "Abstract syntax constructors — Ranta GF AST nodes", "manifest", "space"],
+  ["Control", "Control flow — Tesniere translation (category change)", "manifest", "space"],
+  ["Ownership", "Memory ownership semantics", "manifest", "space"],
+  ["Binding", "Variable binding mode — Ranta dependent type context", "manifest", "space"],
+  ["Arity", "Operator valency — Tesniere", "manifest", "space"],
+  ["Pattern", "Exclusion-based pattern matching — Dignaga apoha", "manifest", "space"],
+  ["Quantifier", "Quantification over domains — Frege third primitive", "manifest", "space"],
+  ["Evaluation", "Computation strategy — pratyaksa/anumana", "manifest", "space"],
+  ["Query", "LLM query protocol event — CSP request alphabet", "manifest", "space"],
+  ["Response", "Harness response protocol event — CSP response alphabet", "manifest", "space"],
 ]
 :put Domain { name => description, phase, dignity }
 
@@ -24,24 +24,24 @@
 # kept as wire-format for efficiency. Partitioned via Op -> Arity morphism.
 
 ?[name, description, phase, dignity] <- [
-  ["not", "Logical negation — Frege primitive 1", "manifest", "eternal"],
-  ["and", "Logical conjunction", "manifest", "eternal"],
-  ["or", "Logical disjunction", "manifest", "eternal"],
-  ["implies", "Material conditional — Frege primitive 2", "manifest", "eternal"],
-  ["iff", "Biconditional — if and only if", "manifest", "eternal"],
-  ["xor", "Exclusive disjunction", "manifest", "eternal"],
-  ["eq", "Equality comparison", "manifest", "eternal"],
-  ["neq", "Inequality comparison", "manifest", "eternal"],
-  ["lt", "Less than", "manifest", "eternal"],
-  ["gt", "Greater than", "manifest", "eternal"],
-  ["lte", "Less than or equal", "manifest", "eternal"],
-  ["gte", "Greater than or equal", "manifest", "eternal"],
-  ["add", "Arithmetic addition", "manifest", "eternal"],
-  ["sub", "Arithmetic subtraction", "manifest", "eternal"],
-  ["mul", "Arithmetic multiplication", "manifest", "eternal"],
-  ["div", "Arithmetic division", "manifest", "eternal"],
-  ["mod", "Arithmetic modulus", "manifest", "eternal"],
-  ["negate", "Arithmetic negation (unary minus)", "manifest", "eternal"],
+  ["not", "Logical negation — Frege primitive 1", "manifest", "space"],
+  ["and", "Logical conjunction", "manifest", "space"],
+  ["or", "Logical disjunction", "manifest", "space"],
+  ["implies", "Material conditional — Frege primitive 2", "manifest", "space"],
+  ["iff", "Biconditional — if and only if", "manifest", "space"],
+  ["xor", "Exclusive disjunction", "manifest", "space"],
+  ["eq", "Equality comparison", "manifest", "space"],
+  ["neq", "Inequality comparison", "manifest", "space"],
+  ["lt", "Less than", "manifest", "space"],
+  ["gt", "Greater than", "manifest", "space"],
+  ["lte", "Less than or equal", "manifest", "space"],
+  ["gte", "Greater than or equal", "manifest", "space"],
+  ["add", "Arithmetic addition", "manifest", "space"],
+  ["sub", "Arithmetic subtraction", "manifest", "space"],
+  ["mul", "Arithmetic multiplication", "manifest", "space"],
+  ["div", "Arithmetic division", "manifest", "space"],
+  ["mod", "Arithmetic modulus", "manifest", "space"],
+  ["negate", "Arithmetic negation (unary minus)", "manifest", "space"],
 ]
 :put Op { name => description, phase, dignity }
 
@@ -49,14 +49,14 @@
 # Ranta abstract syntax constructors — the AST IS the capnp message
 
 ?[name, description, phase, dignity] <- [
-  ["literal", "Constant value — bool, int, or domain discriminant", "manifest", "eternal"],
-  ["ref", "Variable reference — typed by binding context (structural, not nominal)", "manifest", "eternal"],
-  ["unary_op", "Unary operation — Op with Arity=unary applied to one Expr", "manifest", "eternal"],
-  ["binary_op", "Binary operation — Op with Arity=binary applied to two Exprs", "manifest", "eternal"],
-  ["apply", "Function/method application", "manifest", "eternal"],
-  ["let_bind", "Let binding — introduces a named value into scope", "manifest", "eternal"],
-  ["match", "Pattern match — Dignaga apoha: exhaustive exclusion", "manifest", "eternal"],
-  ["block", "Sequence of expressions — last is the value", "manifest", "eternal"],
+  ["literal", "Constant value — bool, int, or domain discriminant", "manifest", "space"],
+  ["ref", "Variable reference — typed by binding context (structural, not nominal)", "manifest", "space"],
+  ["unary_op", "Unary operation — Op with Arity=unary applied to one Expr", "manifest", "space"],
+  ["binary_op", "Binary operation — Op with Arity=binary applied to two Exprs", "manifest", "space"],
+  ["apply", "Function/method application", "manifest", "space"],
+  ["let_bind", "Let binding — introduces a named value into scope", "manifest", "space"],
+  ["match", "Pattern match — Dignaga apoha: exhaustive exclusion", "manifest", "space"],
+  ["block", "Sequence of expressions — last is the value", "manifest", "space"],
 ]
 :put Expr { name => description, phase, dignity }
 
@@ -64,12 +64,12 @@
 # Tesniere translation — changes the category of an expression
 
 ?[name, description, phase, dignity] <- [
-  ["if", "Conditional branch — trivalent (condition, then, else)", "manifest", "eternal"],
-  ["loop", "Iteration — repeats until break", "manifest", "eternal"],
-  ["return", "Early return from enclosing scope", "manifest", "eternal"],
-  ["break", "Exit enclosing loop", "manifest", "eternal"],
-  ["continue", "Skip to next loop iteration", "manifest", "eternal"],
-  ["sequence", "Ordered execution of expressions", "manifest", "eternal"],
+  ["if", "Conditional branch — trivalent (condition, then, else)", "manifest", "space"],
+  ["loop", "Iteration — repeats until break", "manifest", "space"],
+  ["return", "Early return from enclosing scope", "manifest", "space"],
+  ["break", "Exit enclosing loop", "manifest", "space"],
+  ["continue", "Skip to next loop iteration", "manifest", "space"],
+  ["sequence", "Ordered execution of expressions", "manifest", "space"],
 ]
 :put Control { name => description, phase, dignity }
 
@@ -77,67 +77,60 @@
 # Tesniere translation applied to memory — how values move between scopes
 
 ?[name, description, phase, dignity] <- [
-  ["own", "Exclusive ownership — single owner, move semantics", "manifest", "eternal"],
-  ["borrow", "Shared immutable reference", "manifest", "eternal"],
-  ["borrow_mut", "Exclusive mutable reference", "manifest", "eternal"],
-  ["move", "Transfer of ownership to new scope", "manifest", "eternal"],
-  ["copy", "Bitwise duplication — no ownership transfer", "manifest", "eternal"],
+  ["own", "Exclusive ownership — single owner, move semantics", "manifest", "space"],
+  ["borrow", "Shared immutable reference", "manifest", "space"],
+  ["borrow_mut", "Exclusive mutable reference", "manifest", "space"],
+  ["move", "Transfer of ownership to new scope", "manifest", "space"],
+  ["copy", "Bitwise duplication — no ownership transfer", "manifest", "space"],
 ]
 :put Ownership { name => description, phase, dignity }
 
 # ─── Binding ─────────────────────────────────────────────────────────
 # Ranta dependent type context — how variables are bound
 
+# Binding ordinal-aligned with Modality: @0=cardinal, @1=fixed, @2=mutable
 ?[name, description, phase, dignity] <- [
-  ["immutable", "Cannot be reassigned after binding", "manifest", "eternal"],
-  ["mutable", "Can be reassigned within scope", "manifest", "eternal"],
-  ["constant", "Compile-time constant — resolved before evaluation", "manifest", "eternal"],
+  ["constant", "Compile-time constant — resolved before evaluation", "manifest", "space"],
+  ["immutable", "Cannot be reassigned after binding", "manifest", "space"],
+  ["mutable", "Can be reassigned within scope", "manifest", "space"],
 ]
 :put Binding { name => description, phase, dignity }
 
-# ─── Arity ───────────────────────────────────────────────────────────
-# Tesniere valency — structural property of operators
-
+# Arity ordinal-aligned with Dignity: @0=space, @1=air, @2=fire, @3=water, @4=earth
 ?[name, description, phase, dignity] <- [
-  ["nullary", "Zero arguments — constants, literals", "manifest", "eternal"],
-  ["unary", "One argument — not, negate", "manifest", "eternal"],
-  ["binary", "Two arguments — add, eq, and", "manifest", "eternal"],
-  ["ternary", "Three arguments — if-then-else", "manifest", "eternal"],
-  ["variadic", "Variable number of arguments — block, sequence", "manifest", "eternal"],
+  ["variadic", "Variable number of arguments — block, sequence", "manifest", "space"],
+  ["ternary", "Three arguments — if-then-else", "manifest", "space"],
+  ["binary", "Two arguments — add, eq, and", "manifest", "space"],
+  ["unary", "One argument — not, negate", "manifest", "space"],
+  ["nullary", "Zero arguments — constants, literals", "manifest", "space"],
 ]
 :put Arity { name => description, phase, dignity }
 
-# ─── Pattern ─────────────────────────────────────────────────────────
-# Dignaga apoha — identity by exclusion
-
+# Pattern ordinal-aligned with Dignity: @0=space, @1=air, @2=fire, @3=water, @4=earth
 ?[name, description, phase, dignity] <- [
-  ["wildcard", "Matches anything — excludes nothing", "manifest", "eternal"],
-  ["literal", "Matches one specific value — excludes all others", "manifest", "eternal"],
-  ["variant", "Matches one enum variant — excludes all other variants", "manifest", "eternal"],
-  ["destructure", "Matches a struct and binds its fields", "manifest", "eternal"],
-  ["guard", "Matches conditionally — excludes values failing predicate", "manifest", "eternal"],
+  ["wildcard", "Matches anything — excludes nothing", "manifest", "space"],
+  ["destructure", "Matches a struct and binds its fields", "manifest", "space"],
+  ["variant", "Matches one enum variant — excludes all other variants", "manifest", "space"],
+  ["guard", "Matches conditionally — excludes values failing predicate", "manifest", "space"],
+  ["literal", "Matches one specific value — excludes all others", "manifest", "space"],
 ]
 :put Pattern { name => description, phase, dignity }
 
-# ─── Quantifier ──────────────────────────────────────────────────────
-# Frege third primitive — quantification over domains
-
+# Quantifier ordinal-aligned with Element: @0=fire, @1=earth, @2=air, @3=water
 ?[name, description, phase, dignity] <- [
-  ["for_all", "Universal — holds for every element of a domain", "manifest", "eternal"],
-  ["exists", "Existential — holds for at least one element", "manifest", "eternal"],
-  ["unique", "Uniqueness — holds for exactly one element", "manifest", "eternal"],
-  ["none", "Null quantifier — holds for no element", "manifest", "eternal"],
+  ["for_all", "Universal — holds for every element of a domain", "manifest", "space"],
+  ["unique", "Uniqueness — holds for exactly one element", "manifest", "space"],
+  ["none", "Null quantifier — holds for no element", "manifest", "space"],
+  ["exists", "Existential — holds for at least one element", "manifest", "space"],
 ]
 :put Quantifier { name => description, phase, dignity }
 
-# ─── Evaluation ──────────────────────────────────────────────────────
-# Computation strategy — Dignaga pratyaksa (direct) vs anumana (deferred)
-
+# Evaluation ordinal-aligned with Element: @0=fire, @1=earth, @2=air, @3=water
 ?[name, description, phase, dignity] <- [
-  ["strict", "Evaluate immediately — pratyaksa, direct apprehension", "manifest", "eternal"],
-  ["lazy", "Evaluate on demand — deferred until needed", "manifest", "eternal"],
-  ["memoized", "Evaluate once, cache result — proven becomes eternal", "manifest", "eternal"],
-  ["parallel", "Evaluate concurrently — CSP parallel composition", "manifest", "eternal"],
+  ["strict", "Evaluate immediately — direct apprehension", "manifest", "space"],
+  ["memoized", "Evaluate once, cache result", "manifest", "space"],
+  ["parallel", "Evaluate concurrently", "manifest", "space"],
+  ["lazy", "Evaluate on demand — deferred until needed", "manifest", "space"],
 ]
 :put Evaluation { name => description, phase, dignity }
 
@@ -145,15 +138,15 @@
 # CSP event alphabet — what the LLM can ask in a binary turn
 
 ?[name, description, phase, dignity] <- [
-  ["list_types", "What types exist in this schema?", "manifest", "eternal"],
-  ["describe_type", "What fields/variants does this type have?", "manifest", "eternal"],
-  ["list_domains", "What domain enums exist?", "manifest", "eternal"],
-  ["describe_enum", "What variants does this enum have?", "manifest", "eternal"],
-  ["list_methods", "What methods does this interface have?", "manifest", "eternal"],
-  ["assert_fact", "Store a fact in the world model", "manifest", "eternal"],
-  ["query_facts", "Retrieve facts matching a pattern", "manifest", "eternal"],
-  ["encode", "Produce the binary encoding of a value", "manifest", "eternal"],
-  ["reason", "Internal reasoning step — logged but not executed", "manifest", "eternal"],
+  ["list_types", "What types exist in this schema?", "manifest", "space"],
+  ["describe_type", "What fields/variants does this type have?", "manifest", "space"],
+  ["list_domains", "What domain enums exist?", "manifest", "space"],
+  ["describe_enum", "What variants does this enum have?", "manifest", "space"],
+  ["list_methods", "What methods does this interface have?", "manifest", "space"],
+  ["assert_fact", "Store a fact in the world model", "manifest", "space"],
+  ["query_facts", "Retrieve facts matching a pattern", "manifest", "space"],
+  ["encode", "Produce the binary encoding of a value", "manifest", "space"],
+  ["reason", "Internal reasoning step — logged but not executed", "manifest", "space"],
 ]
 :put Query { name => description, phase, dignity }
 
@@ -161,15 +154,78 @@
 # CSP event alphabet — what the harness responds with
 
 ?[name, description, phase, dignity] <- [
-  ["type_list", "List of type names and structures", "manifest", "eternal"],
-  ["type_description", "Fields or variants of a specific type", "manifest", "eternal"],
-  ["domain_list", "List of domain enum names", "manifest", "eternal"],
-  ["enum_description", "Variants of a specific domain enum", "manifest", "eternal"],
-  ["method_list", "Methods of a specific interface", "manifest", "eternal"],
-  ["fact_asserted", "Confirmation that a fact was stored", "manifest", "eternal"],
-  ["fact_results", "Facts matching a query pattern", "manifest", "eternal"],
-  ["encoded", "Binary encoding of a requested value", "manifest", "eternal"],
-  ["reasoning_ack", "Acknowledgment of a reasoning step", "manifest", "eternal"],
-  ["error", "Error response — invalid query or encoding failure", "manifest", "eternal"],
+  ["type_list", "List of type names and structures", "manifest", "space"],
+  ["type_description", "Fields or variants of a specific type", "manifest", "space"],
+  ["domain_list", "List of domain enum names", "manifest", "space"],
+  ["enum_description", "Variants of a specific domain enum", "manifest", "space"],
+  ["method_list", "Methods of a specific interface", "manifest", "space"],
+  ["fact_asserted", "Confirmation that a fact was stored", "manifest", "space"],
+  ["fact_results", "Facts matching a query pattern", "manifest", "space"],
+  ["encoded", "Binary encoding of a requested value", "manifest", "space"],
+  ["reasoning_ack", "Acknowledgment of a reasoning step", "manifest", "space"],
+  ["error", "Error response — invalid query or encoding failure", "manifest", "space"],
 ]
 :put Response { name => description, phase, dignity }
+
+# ═══════════════════════════════════════════════════════════════════════
+# Name seeds — generator correspondences for sema domains
+# ═══════════════════════════════════════════════════════════════════════
+
+?[name, description, phase, dignity] <- [
+  ["constant", "Binding @0 = Modality cardinal: initiating binding", "manifest", "space"],
+  ["immutable", "Binding @1 = Modality fixed: sustaining binding", "manifest", "space"],
+  ["own", "Ownership @0 = Dignity space: full authority", "manifest", "space"],
+  ["borrow", "Ownership @1 = Dignity air: insight access", "manifest", "space"],
+  ["borrow_mut", "Ownership @2 = Dignity fire: recognized access", "manifest", "space"],
+  ["move", "Ownership @3 = Dignity water: flowing transfer", "manifest", "space"],
+  ["copy", "Ownership @4 = Dignity earth: surface duplication", "manifest", "space"],
+  ["variadic", "Arity @0 = Dignity space: contains all", "manifest", "space"],
+  ["ternary", "Arity @1 = Dignity air: elevated complexity", "manifest", "space"],
+  ["binary", "Arity @2 = Dignity fire: interaction", "manifest", "space"],
+  ["unary", "Arity @3 = Dignity water: single flow", "manifest", "space"],
+  ["nullary", "Arity @4 = Dignity earth: bare constant", "manifest", "space"],
+  ["wildcard", "Pattern @0 = Dignity space: matches everything", "manifest", "space"],
+  ["destructure", "Pattern @1 = Dignity air: insight into structure", "manifest", "space"],
+  ["variant", "Pattern @2 = Dignity fire: recognizes kind", "manifest", "space"],
+  ["guard", "Pattern @3 = Dignity water: conditional flow", "manifest", "space"],
+  ["literal", "Pattern @4 = Dignity earth: exact surface match", "manifest", "space"],
+  ["for_all", "Quantifier @0 = Element fire: universal", "manifest", "space"],
+  ["unique", "Quantifier @1 = Element earth: exactly one", "manifest", "space"],
+  ["none", "Quantifier @2 = Element air: absence", "manifest", "space"],
+  ["exists", "Quantifier @3 = Element water: emergence", "manifest", "space"],
+  ["strict", "Evaluation @0 = Element fire: immediate", "manifest", "space"],
+  ["memoized", "Evaluation @1 = Element earth: cached", "manifest", "space"],
+  ["parallel", "Evaluation @2 = Element air: distributed", "manifest", "space"],
+  ["lazy", "Evaluation @3 = Element water: deferred", "manifest", "space"],
+]
+:put Name { name => description, phase, dignity }
+
+?[domain, variant, generator, position, phase, dignity] <- [
+  ["Binding", "constant", "Modality", "cardinal", "manifest", "space"],
+  ["Binding", "immutable", "Modality", "fixed", "manifest", "space"],
+  ["Binding", "mutable", "Modality", "mutable", "manifest", "space"],
+  ["Ownership", "own", "Dignity", "space", "manifest", "space"],
+  ["Ownership", "borrow", "Dignity", "air", "manifest", "space"],
+  ["Ownership", "borrow_mut", "Dignity", "fire", "manifest", "space"],
+  ["Ownership", "move", "Dignity", "water", "manifest", "space"],
+  ["Ownership", "copy", "Dignity", "earth", "manifest", "space"],
+  ["Arity", "variadic", "Dignity", "space", "manifest", "space"],
+  ["Arity", "ternary", "Dignity", "air", "manifest", "space"],
+  ["Arity", "binary", "Dignity", "fire", "manifest", "space"],
+  ["Arity", "unary", "Dignity", "water", "manifest", "space"],
+  ["Arity", "nullary", "Dignity", "earth", "manifest", "space"],
+  ["Pattern", "wildcard", "Dignity", "space", "manifest", "space"],
+  ["Pattern", "destructure", "Dignity", "air", "manifest", "space"],
+  ["Pattern", "variant", "Dignity", "fire", "manifest", "space"],
+  ["Pattern", "guard", "Dignity", "water", "manifest", "space"],
+  ["Pattern", "literal", "Dignity", "earth", "manifest", "space"],
+  ["Quantifier", "for_all", "Element", "fire", "manifest", "space"],
+  ["Quantifier", "unique", "Element", "earth", "manifest", "space"],
+  ["Quantifier", "none", "Element", "air", "manifest", "space"],
+  ["Quantifier", "exists", "Element", "water", "manifest", "space"],
+  ["Evaluation", "strict", "Element", "fire", "manifest", "space"],
+  ["Evaluation", "memoized", "Element", "earth", "manifest", "space"],
+  ["Evaluation", "parallel", "Element", "air", "manifest", "space"],
+  ["Evaluation", "lazy", "Element", "water", "manifest", "space"],
+]
+:put name { domain, variant, generator, position => phase, dignity }
