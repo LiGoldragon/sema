@@ -1,106 +1,79 @@
-# Sema Language Layer — Programming Logic + Protocol + Testing
-# Loads AFTER sema-core. Depends on: Phase, Dignity, Type, Scalar,
-# Cardinality, Direction, field, schema_*, Domain, morphism.
-#
-# Load order: sema-core -> sema -> noesis
+# Sema Language Layer — Application domains + operational relations
+# Loads AFTER sema-core. Programming domains use the triad pattern.
+# Composition TBD — these are application-layer, not primordial.
 
 # ═══════════════════════════════════════════════════════════════════════
-# Programming Logic Domains
-# The irreducible vocabulary for expressing computation and structure.
+# Programming Logic Domains (application layer)
 # ═══════════════════════════════════════════════════════════════════════
 
-# All operators — logical, comparison, arithmetic (Frege primitives + extensions)
 :create Op {
-  name: String =>
-  description: String,
-  phase: String,
-  dignity: String
+  ordinal: Int =>
+  variant: String,
+  structure: String
 }
 
-# Abstract syntax constructors (Ranta GF — AST nodes)
 :create Expr {
-  name: String =>
-  description: String,
-  phase: String,
-  dignity: String
+  ordinal: Int =>
+  variant: String,
+  structure: String
 }
 
-# Control flow — Tesniere translation (category-changing operations)
 :create Control {
-  name: String =>
-  description: String,
-  phase: String,
-  dignity: String
+  ordinal: Int =>
+  variant: String,
+  structure: String
 }
 
-# Memory ownership semantics — Tesniere translation applied to memory
 :create Ownership {
-  name: String =>
-  description: String,
-  phase: String,
-  dignity: String
+  ordinal: Int =>
+  variant: String,
+  structure: String
 }
 
-# Variable binding mode — Ranta dependent type context
 :create Binding {
-  name: String =>
-  description: String,
-  phase: String,
-  dignity: String
+  ordinal: Int =>
+  variant: String,
+  structure: String
 }
 
-# Tesniere valency — number of arguments an operator takes
 :create Arity {
-  name: String =>
-  description: String,
-  phase: String,
-  dignity: String
+  ordinal: Int =>
+  variant: String,
+  structure: String
 }
 
-# Dignaga apoha — exclusion-based pattern matching
 :create Pattern {
-  name: String =>
-  description: String,
-  phase: String,
-  dignity: String
+  ordinal: Int =>
+  variant: String,
+  structure: String
 }
 
-# Frege third primitive — quantification over domains
 :create Quantifier {
-  name: String =>
-  description: String,
-  phase: String,
-  dignity: String
+  ordinal: Int =>
+  variant: String,
+  structure: String
 }
 
-# Dignaga pratyaksa/anumana as computation strategy
 :create Evaluation {
-  name: String =>
-  description: String,
-  phase: String,
-  dignity: String
+  ordinal: Int =>
+  variant: String,
+  structure: String
 }
-
-# ═══════════════════════════════════════════════════════════════════════
-# Query Protocol — CSP traces over finite event alphabet
-# ═══════════════════════════════════════════════════════════════════════
 
 :create Query {
-  name: String =>
-  description: String,
-  phase: String,
-  dignity: String
+  ordinal: Int =>
+  variant: String,
+  structure: String
 }
 
 :create Response {
-  name: String =>
-  description: String,
-  phase: String,
-  dignity: String
+  ordinal: Int =>
+  variant: String,
+  structure: String
 }
 
 # ═══════════════════════════════════════════════════════════════════════
-# Training and Testing — session logging for LLM binary experiments
+# Operational relations — session logging for LLM binary experiments
 # ═══════════════════════════════════════════════════════════════════════
 
 :create session {
@@ -111,22 +84,18 @@
   variant_count: Int,
   started_ts: String,
   ended_ts: String,
-  phase: String,
-  dignity: String
+  phase: String
 }
 
 :create session_turn {
   session_id: String,
   turn_id: Int =>
   query: String,
-  arg0: Int,
-  arg1: Int,
-  arg2: Int,
+  arg0: Int, arg1: Int, arg2: Int,
   response: String,
   result_count: Int,
   latency_ms: Int,
-  phase: String,
-  dignity: String
+  phase: String
 }
 
 :create trial {
@@ -140,8 +109,7 @@
   actual_size: Int,
   pass: Bool,
   byte_errors: Int,
-  phase: String,
-  dignity: String
+  phase: String
 }
 
 :create model_score {
@@ -152,6 +120,5 @@
   fail_count: Int,
   mean_byte_errors: Int,
   last_session_ts: String,
-  phase: String,
-  dignity: String
+  phase: String
 }
