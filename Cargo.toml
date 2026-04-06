@@ -1,5 +1,0 @@
-[package]
-name = "sema"
-version = "0.1.0"
-edition = "2024"
-description = "Sema — programming logic domains, query protocol, training/testing"
