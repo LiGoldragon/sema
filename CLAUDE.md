@@ -1,40 +1,43 @@
 # sema
 
-Application-layer sema types. The programming-logic domains (Op, Expr,
-Control, Ownership, etc.) built on top of sema-core's prime generators.
+Universal typed binary format. Domain ordinals ARE the bytes.
+No strings. Zero-copy, mmap-ready, deterministic.
 
-## What This Repo Provides
+Sema is the core. Aski is the stepping stone. The criome is the endgoal.
 
-The domain vocabulary that replaces strings. When a samskara Rule has a
-Body, that Body is a composition of sema domain terms — not text. When a
-nexus message asserts a fact, the content fields are trees of sema
-references that resolve to deterministic ordinals.
+## What This Repo Is
 
-sema-core gives the generators (2, 3, 5, 7). This repo gives the
-application-layer compositions: operations, expressions, control flow,
-ownership patterns, type kinds — the domains needed to specify programs,
-knowledge, and eventually all media.
+The top-level aggregator for the compiler pipeline. `nix flake check`
+here runs all checks across all three compiler stages:
 
-## Translation Tables
+```
+nix flake check        — build + test synthc, askic, semac
+nix develop            — shell with all three compilers + synth dialect
+```
 
-Domain trees are language-independent meaning. Translation tables render
-them into surface forms:
+The three stages are separate repos wired as flake inputs:
+- **synthc** — Stage 1: .synth + .aski → data-tree + derived enums
+- **askic** — Stage 2: data-tree + .aski bodies → typed parse tree
+- **semac** — Stage 3: parse tree → .sema binary + codegen
 
-- English prose
-- Chinese
-- Sign language
-- Color mappings
-- Sound mappings
-- Any sensory modality
+The `follows` chains ensure all three build against the same
+toolchain and nixpkgs.
 
-The same sema object can be rendered as text, as color, as sound, as
-spatial arrangement. The rendering is a projection — the domain tree is
-the truth.
+## What Sema Is
 
-## Current State
+Sema is the universal typed binary format. Not a library, not a
+framework — the format. Everything serializes into sema. rkyv is
+the encoding. Domain ordinals are the bytes. Inter-linking is
+content-addressed. Zero-copy, mmap-ready, deterministic.
 
-v1 branch has CozoScript seed data. To be rewritten as aski type
-definitions once the nexus engine is operational.
+The four prime generators (2, 3, 5, 7) produce every possible
+meaning through fractal composition. Natural language text is a
+lossy projection of a fully enumerable domain tree. The tree IS
+the meaning.
+
+## Reference
+
+`v015_reference/kernel.sema` — old v0.15 compiled kernel (rkyv binary).
 
 ## VCS
 
