@@ -9,9 +9,9 @@
     };
     crane.url = "github:ipetkov/crane";
 
-    # The three compiler stages
-    synthc = {
-      url = "github:LiGoldragon/synthc";
+    # The compiler pipeline
+    askicc = {
+      url = "github:LiGoldragon/askicc";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.fenix.follows = "fenix";
       inputs.crane.follows = "crane";
@@ -21,7 +21,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.fenix.follows = "fenix";
       inputs.crane.follows = "crane";
-      inputs.synthc.follows = "synthc";
+      inputs.askicc.follows = "askicc";
     };
     semac = {
       url = "github:LiGoldragon/semac";
@@ -32,41 +32,41 @@
     };
   };
 
-  outputs = { self, nixpkgs, fenix, crane, synthc, askic, semac, ... }:
+  outputs = { self, nixpkgs, fenix, crane, askicc, askic, semac, ... }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
 
     in {
       packages.${system} = {
-        synthc = synthc.packages.${system}.synthc;
-        synth-dialect = synthc.packages.${system}.synth-dialect;
+        askicc = askicc.packages.${system}.askicc;
+        synth-dialect = askicc.packages.${system}.synth-dialect;
         askic = askic.packages.${system}.askic;
         semac = semac.packages.${system}.semac;
       };
 
       checks.${system} = {
-        # Stage 1
-        synthc-build = synthc.checks.${system}.build;
-        synthc-tests = synthc.checks.${system}.cargo-tests;
+        # Bootstrap
+        askicc-build = askicc.checks.${system}.build;
+        askicc-tests = askicc.checks.${system}.cargo-tests;
 
-        # Stage 2
+        # Compiler
         askic-build = askic.checks.${system}.build;
         askic-tests = askic.checks.${system}.cargo-tests;
 
-        # Stage 3
+        # Sema generator
         semac-build = semac.checks.${system}.build;
         semac-tests = semac.checks.${system}.cargo-tests;
       };
 
       devShells.${system}.default = pkgs.mkShell {
         packages = [
-          synthc.packages.${system}.synthc
+          askicc.packages.${system}.askicc
           askic.packages.${system}.askic
           semac.packages.${system}.semac
           pkgs.jujutsu
         ];
-        SYNTH_DIR = "${synthc.packages.${system}.synth-dialect}";
+        SYNTH_DIR = "${askicc.packages.${system}.synth-dialect}";
       };
     };
 }
