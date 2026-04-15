@@ -7,33 +7,22 @@ Sema is the core. Aski is the stepping stone. The criome is the endgoal.
 
 ## What This Repo Is
 
-The top-level aggregator for the compiler pipeline. `nix flake check`
-here runs all checks across all compiler stages:
+The top-level aggregator for the sema engine. `nix flake check`
+here runs all checks across the entire pipeline:
 
 ```
 nix flake check        — build + test askicc, askic, semac
-nix develop            — shell with all compilers + synth dialect
+nix develop            — shell with all compilers + data
 ```
 
-The compiler stages are separate repos wired as flake inputs:
-- **askicc** — bootstrap: .synth grammar + askic's .aski anatomy → data-tree
-- **askic** — compiler: data-tree + .aski bodies → typed parse tree
-- **semac** — sema generator: parse tree → .sema binary + codegen
+## The Sema Engine
 
-The `follows` chains ensure all stages build against the same
-toolchain and nixpkgs.
+```
+aski-core  →  askicc  →  askic  →  semac
+(anatomy)    (bootstrap)  (compiler)  (sema gen)
+```
 
-## What Sema Is
-
-Sema is the universal typed binary format. Not a library, not a
-framework — the format. Everything serializes into sema. rkyv is
-the encoding. Domain ordinals are the bytes. Inter-linking is
-content-addressed. Zero-copy, mmap-ready, deterministic.
-
-The four prime generators (2, 3, 5, 7) produce every possible
-meaning through fractal composition. Natural language text is a
-lossy projection of a fully enumerable domain tree. The tree IS
-the meaning.
+All wired as flake inputs with `follows` chains for shared toolchain.
 
 ## Reference
 
