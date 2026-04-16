@@ -1,32 +1,42 @@
 # sema
 
-Universal typed binary format. Domain ordinals ARE the bytes.
-No strings. Zero-copy, mmap-ready, deterministic.
+Sema is a universal typed binary format — the thing.
+Domain variants ARE the bytes. No strings. Zero-copy,
+mmap-ready, deterministic.
 
-Sema is the core. Aski is the stepping stone. The criome is the endgoal.
+Everything else exists to serve sema:
+- Aski is one text notation for specifying sema (a frontend)
+- The criome is the runtime that hosts sema worlds (the endgoal)
+- Rust is the current compilation target
+
+Aski will eventually be replaced by better ways to represent
+sema for human consumption. The .sema format is permanent.
 
 ## What This Repo Is
 
-The top-level aggregator for the sema engine. `nix flake check`
-here runs all checks across the entire pipeline:
+The top-level Nix aggregator for the sema engine.
 
 ```
-nix flake check        — build + test askicc, askic, semac
+nix flake check        — build + test everything
 nix develop            — shell with all compilers + data
 ```
 
-## The Sema Engine
+## The Two Compilers
 
 ```
-aski-core  →  askicc  →  askic  →  semac
-(anatomy)    (bootstrap)  (compiler)  (sema gen)
+askic (frontend)   .aski → .sema     reads text, produces binary
+semac (backend)    .sema → .rs       reads binary, produces code
 ```
 
-All wired as flake inputs with `follows` chains for shared toolchain.
+askic and semac are independent. Multiple frontends can produce
+.sema. semac is permanent.
 
-## Reference
-
-`v015_reference/kernel.sema` — old v0.15 compiled kernel (rkyv binary).
+askic internally contains three layers:
+```
+cc      (aski-core crate)  — .aski → Rust types
+askicc  (askicc crate)     — uses cc + .synth → scoped types + dialects
+askic   (askic crate)      — uses askicc → parser, data-tree, .sema output
+```
 
 ## VCS
 
