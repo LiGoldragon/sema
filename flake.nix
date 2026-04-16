@@ -8,17 +8,38 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     crane.url = "github:ipetkov/crane";
+    flake-utils.url = "github:numtide/flake-utils";
 
-    # The sema engine
+    # The pipeline — each stage depends on the previous
+    corec = {
+      url = "github:LiGoldragon/corec";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.fenix.follows = "fenix";
+      inputs.crane.follows = "crane";
+      inputs.flake-utils.follows = "flake-utils";
+    };
     aski-core = {
       url = "github:LiGoldragon/aski-core";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.fenix.follows = "fenix";
+      inputs.crane.follows = "crane";
+      inputs.flake-utils.follows = "flake-utils";
+      inputs.corec.follows = "corec";
+    };
+    sema-core = {
+      url = "github:LiGoldragon/sema-core";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.fenix.follows = "fenix";
+      inputs.crane.follows = "crane";
+      inputs.flake-utils.follows = "flake-utils";
+      inputs.corec.follows = "corec";
     };
     askicc = {
       url = "github:LiGoldragon/askicc";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.fenix.follows = "fenix";
       inputs.crane.follows = "crane";
+      inputs.flake-utils.follows = "flake-utils";
       inputs.aski-core.follows = "aski-core";
     };
     askic = {
@@ -26,6 +47,9 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.fenix.follows = "fenix";
       inputs.crane.follows = "crane";
+      inputs.flake-utils.follows = "flake-utils";
+      inputs.aski-core.follows = "aski-core";
+      inputs.sema-core.follows = "sema-core";
       inputs.askicc.follows = "askicc";
     };
     semac = {
@@ -33,47 +57,59 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.fenix.follows = "fenix";
       inputs.crane.follows = "crane";
-      inputs.askic.follows = "askic";
+      inputs.flake-utils.follows = "flake-utils";
+      inputs.sema-core.follows = "sema-core";
     };
   };
 
-  outputs = { self, nixpkgs, fenix, crane, aski-core, askicc, askic, semac, ... }:
-    let
-      system = "x86_64-linux";
-      pkgs = nixpkgs.legacyPackages.${system};
+  outputs = { self, nixpkgs, fenix, crane, flake-utils,
+              corec, aski-core, sema-core, askicc, askic, semac, ... }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+      in {
+        packages = {
+          corec = corec.packages.${system}.corec;
+          aski-core = aski-core.packages.${system}.source;
+          sema-core = sema-core.packages.${system}.source;
+          askicc = askicc.packages.${system}.askicc;
+          dialect-data = askicc.packages.${system}.dialect-data;
+          askic = askic.packages.${system}.askic;
+          semac = semac.packages.${system}.semac;
+        };
 
-    in {
-      packages.${system} = {
-        aski-core = aski-core.packages.${system}.aski-core;
-        askicc = askicc.packages.${system}.askicc;
-        synth-dialect = askicc.packages.${system}.synth-dialect;
-        askic = askic.packages.${system}.askic;
-        semac = semac.packages.${system}.semac;
-      };
+        checks = {
+          # Stage 1: corec
+          corec-tests = corec.checks.${system}.tests;
 
-      checks.${system} = {
-        # Bootstrap
-        askicc-build = askicc.checks.${system}.build;
-        askicc-tests = askicc.checks.${system}.cargo-tests;
+          # Stage 2a: aski-core
+          aski-core-lib = aski-core.checks.${system}.lib-build;
 
-        # Compiler
-        askic-build = askic.checks.${system}.build;
-        askic-tests = askic.checks.${system}.cargo-tests;
+          # Stage 2b: sema-core
+          sema-core-lib = sema-core.checks.${system}.lib-build;
 
-        # Sema generator
-        semac-build = semac.checks.${system}.build;
-        semac-tests = semac.checks.${system}.cargo-tests;
-      };
+          # Stage 3: askicc
+          askicc-build = askicc.checks.${system}.build;
+          askicc-tests = askicc.checks.${system}.tests;
 
-      devShells.${system}.default = pkgs.mkShell {
-        packages = [
-          askicc.packages.${system}.askicc
-          askic.packages.${system}.askic
-          semac.packages.${system}.semac
-          pkgs.jujutsu
-        ];
-        ASKI_CORE = "${aski-core.packages.${system}.aski-core}";
-        SYNTH_DIR = "${askicc.packages.${system}.synth-dialect}";
-      };
-    };
+          # Stage 4: askic
+          askic-build = askic.checks.${system}.build;
+          askic-tests = askic.checks.${system}.tests;
+
+          # Stage 5: semac
+          semac-build = semac.checks.${system}.build;
+          semac-tests = semac.checks.${system}.tests;
+        };
+
+        devShells.default = pkgs.mkShell {
+          packages = [
+            corec.packages.${system}.corec
+            askicc.packages.${system}.askicc
+            askic.packages.${system}.askic
+            semac.packages.${system}.semac
+            pkgs.jujutsu
+          ];
+        };
+      }
+    );
 }

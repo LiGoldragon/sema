@@ -1,16 +1,17 @@
 # sema
 
 Sema is a universal typed binary format — the thing.
-Domain variants ARE the bytes. No strings. Zero-copy,
-mmap-ready, deterministic.
+Domain variants ARE the bytes. No strings. No unsized data.
+Zero-copy, mmap-ready, deterministic.
+
+**Only semac produces sema.** Everything upstream is rkyv —
+serialized data that still has strings. It becomes sema only
+when semac resolves all strings to domain variants.
 
 Everything else exists to serve sema:
 - Aski is one text notation for specifying sema (a frontend)
 - The criome is the runtime that hosts sema worlds (the endgoal)
 - Rust is the current compilation target
-
-Aski will eventually be replaced by better ways to represent
-sema for human consumption. The .sema format is permanent.
 
 ## What This Repo Is
 
@@ -21,22 +22,17 @@ nix flake check        — build + test everything
 nix develop            — shell with all compilers + data
 ```
 
-## The Two Compilers
+## The Pipeline
 
 ```
-askic (frontend)   .aski → .sema     reads text, produces binary
-semac (backend)    .sema → .rs       reads binary, produces code
+cc       — .aski → Rust types (bootstrap seed)
+askicc   — .synth → rkyv domain-data-tree (embedded in askic)
+askic    — reads rkyv data-tree → dialect state machine → rkyv parse tree
+semac    — reads rkyv → produces sema + Rust
 ```
 
-askic and semac are independent. Multiple frontends can produce
-.sema. semac is permanent.
-
-askic internally contains three layers:
-```
-cc      (aski-core crate)  — .aski → Rust types
-askicc  (askicc crate)     — uses cc + .synth → scoped types + dialects
-askic   (askic crate)      — uses askicc → parser, data-tree, .sema output
-```
+Four separate binaries. Only cc and semac generate Rust.
+Only semac produces true sema.
 
 ## VCS
 
