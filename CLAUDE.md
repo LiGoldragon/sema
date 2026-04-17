@@ -27,10 +27,10 @@ nix develop            — shell with all compilers + data
 ```
 corec     — .aski → Rust with rkyv derives (the bootstrap tool)
 aski-core — grammar .aski + corec → Rust rkyv types (askicc↔askic contract)
-sema-core — parse tree .aski + corec → Rust rkyv types (askic↔semac contract)
+aski — parse tree .aski + corec → Rust rkyv types (askic↔semac contract)
 askicc    — uses aski-core types → rkyv dialect-data-tree (embedded in askic)
-askic     — uses aski-core (input) + sema-core (output), embeds askicc's rkyv
-semac     — uses sema-core types only, independent of aski
+askic     — uses aski-core (input) + aski (output), embeds askicc's rkyv
+semac     — uses aski types only, independent of aski
 ```
 
 Six repos. Only corec and semac generate Rust.
