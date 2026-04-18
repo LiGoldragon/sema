@@ -73,7 +73,7 @@
           aski-core = aski-core.packages.${system}.source;
           sema-core = sema-core.packages.${system}.source;
           askicc = askicc.packages.${system}.askicc;
-          dialect-data = askicc.packages.${system}.dialect-data;
+          dsls-data = askicc.packages.${system}.dsls-data;
           askic = askic.packages.${system}.askic;
           semac = semac.packages.${system}.semac;
         };
