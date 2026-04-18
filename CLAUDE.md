@@ -28,7 +28,7 @@ nix develop            — shell with all compilers + data
 corec       — .core → Rust with rkyv derives (bootstrap tool)
 synth-core  — grammar .core + corec → Rust rkyv types (askicc↔askic contract)
 aski-core   — parse tree .core + corec → Rust rkyv types (askic↔veric↔semac contract)
-sema-core   — veric-output .core + corec → Rust rkyv types (veric↔semac contract)
+veri-core   — veric-output .core + corec → Rust rkyv types (veric↔semac contract)
 askicc      — source/<surface>/*.synth → dsls.rkyv (all 4 DSLs combined)
 askic       — reads source + dsls.rkyv → per-module rkyv (aski-core types)
 veric       — per-module rkyv → program.rkyv (verified, linked)

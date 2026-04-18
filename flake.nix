@@ -26,8 +26,8 @@
       inputs.flake-utils.follows = "flake-utils";
       inputs.corec.follows = "corec";
     };
-    sema-core = {
-      url = "github:LiGoldragon/sema-core";
+    veri-core = {
+      url = "github:LiGoldragon/veri-core";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.fenix.follows = "fenix";
       inputs.crane.follows = "crane";
@@ -49,7 +49,7 @@
       inputs.crane.follows = "crane";
       inputs.flake-utils.follows = "flake-utils";
       inputs.aski-core.follows = "aski-core";
-      inputs.sema-core.follows = "sema-core";
+      inputs.veri-core.follows = "veri-core";
       inputs.askicc.follows = "askicc";
     };
     semac = {
@@ -58,12 +58,12 @@
       inputs.fenix.follows = "fenix";
       inputs.crane.follows = "crane";
       inputs.flake-utils.follows = "flake-utils";
-      inputs.sema-core.follows = "sema-core";
+      inputs.veri-core.follows = "veri-core";
     };
   };
 
   outputs = { self, nixpkgs, fenix, crane, flake-utils,
-              corec, aski-core, sema-core, askicc, askic, semac, ... }:
+              corec, aski-core, veri-core, askicc, askic, semac, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
@@ -71,7 +71,7 @@
         packages = {
           corec = corec.packages.${system}.corec;
           aski-core = aski-core.packages.${system}.source;
-          sema-core = sema-core.packages.${system}.source;
+          veri-core = veri-core.packages.${system}.source;
           askicc = askicc.packages.${system}.askicc;
           dsls-data = askicc.packages.${system}.dsls-data;
           askic = askic.packages.${system}.askic;
@@ -85,8 +85,8 @@
           # Stage 2a: aski-core
           aski-core-lib = aski-core.checks.${system}.lib-build;
 
-          # Stage 2b: sema-core
-          sema-core-lib = sema-core.checks.${system}.lib-build;
+          # Stage 2b: veri-core
+          veri-core-lib = veri-core.checks.${system}.lib-build;
 
           # Stage 3: askicc
           askicc-build = askicc.checks.${system}.build;
