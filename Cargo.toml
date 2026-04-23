@@ -1,0 +1,14 @@
+[package]
+name         = "sema"
+version      = "0.1.0"
+edition      = "2024"
+rust-version = "1.85"
+license      = "MIT OR Apache-2.0"
+repository   = "https://github.com/LiGoldragon/sema"
+description  = "The sema database — content-addressed record storage for typed program structure"
+
+[dependencies]
+redb = "4"
+rkyv = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
+blake3 = "1.5"
+thiserror = "2"
