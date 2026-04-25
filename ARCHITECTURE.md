@@ -1,7 +1,7 @@
 # ARCHITECTURE — sema
 
 The records database. redb-backed; content-addressed by blake3
-of canonical rkyv encoding. Owned exclusively by **criomed** —
+of canonical rkyv encoding. Owned exclusively by **criome** —
 no other process opens this file.
 
 ## Role
@@ -11,8 +11,8 @@ reasons about (code, schema, rules, plans, authz, history,
 world data) is expressed as records here. Everything else
 exists to serve sema:
 
-- nexus is text → criomed writes records here.
-- signal is the rkyv envelope nexus uses to send criomed
+- nexus is text → criome writes records here.
+- signal is the rkyv envelope nexus uses to send criome
   edits to apply to records here.
 - lojix-store holds the actual artifact bytes; sema records
   reference lojix-store by hash.
@@ -25,8 +25,8 @@ exists to serve sema:
 
 Owns:
 
-- The redb file (one per criomed instance).
-- Slot allocation: counter-minted by criomed, freelist-reuse,
+- The redb file (one per criome instance).
+- Slot allocation: counter-minted by criome, freelist-reuse,
   range `[0, 1024)` reserved for seed.
 - `SlotBinding` table — slot → current content-hash + display-
   name. Bitemporal; slot-reuse is safe for historical queries.
@@ -41,7 +41,7 @@ Does not own:
 
 - The Rust types of records (those live in
   [nexus-schema](https://github.com/LiGoldragon/nexus-schema)).
-- The validator pipeline (that's criomed; CANON-MISSING).
+- The validator pipeline (that's criome; CANON-MISSING).
 - Signal envelope or wire format (that's
   [signal](https://github.com/LiGoldragon/signal)).
 - Artifact bytes (those live in
@@ -69,7 +69,7 @@ src/
 ├── lib.rs    — module entry; opens / closes the redb file
 ├── tables.rs — table definitions, key/value codecs
 ├── reader.rs — read paths
-└── writer.rs — write paths (called only from criomed's
+└── writer.rs — write paths (called only from criome's
                 validator pipeline)
 ```
 
@@ -78,7 +78,7 @@ src/
 ## Status
 
 **Skeleton-as-design**, day-one canonical. Backing types are in
-nexus-schema. Behavior fills as criomed scaffolds.
+nexus-schema. Behavior fills as criome scaffolds.
 
 ## Cross-cutting context
 
