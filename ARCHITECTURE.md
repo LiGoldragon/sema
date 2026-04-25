@@ -19,7 +19,7 @@ exists to serve sema:
 - rsc projects records here → Rust source for nix to compile.
 
 > **Sema is all we are concerned with** (per
-> [mentci-next/docs/architecture.md §1](https://github.com/LiGoldragon/mentci-next/blob/main/docs/architecture.md)).
+> [criome/ARCHITECTURE.md §1](https://github.com/LiGoldragon/criome/blob/main/ARCHITECTURE.md)).
 
 ## Boundaries
 
@@ -83,6 +83,6 @@ nexus-schema. Behavior fills as criomed scaffolds.
 ## Cross-cutting context
 
 - Two-stores model (sema + lojix-store):
-  [mentci-next/docs/architecture.md §5](https://github.com/LiGoldragon/mentci-next/blob/main/docs/architecture.md)
+  [criome/ARCHITECTURE.md §5](https://github.com/LiGoldragon/criome/blob/main/ARCHITECTURE.md)
 - Per-kind change-log discipline:
-  [mentci-next/docs/architecture.md §5](https://github.com/LiGoldragon/mentci-next/blob/main/docs/architecture.md)
+  [criome/ARCHITECTURE.md §5](https://github.com/LiGoldragon/criome/blob/main/ARCHITECTURE.md)
