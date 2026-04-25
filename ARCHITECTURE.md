@@ -12,7 +12,7 @@ world data) is expressed as records here. Everything else
 exists to serve sema:
 
 - nexus is text → criomed writes records here.
-- signal is the rkyv envelope nexusd uses to send criomed
+- signal is the rkyv envelope nexus uses to send criomed
   edits to apply to records here.
 - lojix-store holds the actual artifact bytes; sema records
   reference lojix-store by hash.
