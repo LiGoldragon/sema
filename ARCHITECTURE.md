@@ -40,7 +40,8 @@ Owns:
 Does not own:
 
 - The Rust types of records (those live in
-  [nexus-schema](https://github.com/LiGoldragon/nexus-schema)).
+  [signal](https://github.com/LiGoldragon/signal); the former
+  nexus-schema crate was absorbed there).
 - The validator pipeline (that's criome; CANON-MISSING).
 - Signal envelope or wire format (that's
   [signal](https://github.com/LiGoldragon/signal)).
@@ -62,6 +63,24 @@ consistent. rsc projections pick it up everywhere.
 
 Slots are **global**, not opus-scoped.
 
+## Stored by precise kind
+
+Sema is the storage end of the project's [perfect-specificity
+invariant](https://github.com/LiGoldragon/criome/blob/main/ARCHITECTURE.md#invariant-d).
+Every record stored here belongs to a specific kind declared
+by a `KindDecl` record (which is itself a kind, stored
+self-describingly). There is no untyped-blob pool, no
+"miscellaneous record" table, no fallback storage path for
+records that don't fit a known kind — a record without a
+KindDecl cannot land. Kind growth happens via the criome
+self-host loop: assert a new KindDecl, recompile, the new
+kind has its own storage discipline (per-kind change-log,
+per-kind primary table, per-kind indexes).
+
+The schema isn't a separate concern bolted onto storage; it
+*is* records here. Bitemporal queries over `KindDecl`
+naturally answer "what was the schema yesterday."
+
 ## Code map
 
 ```
@@ -78,7 +97,7 @@ src/
 ## Status
 
 **Skeleton-as-design**, day-one canonical. Backing types are in
-nexus-schema. Behavior fills as criome scaffolds.
+signal. Behavior fills as criome scaffolds.
 
 ## Cross-cutting context
 
