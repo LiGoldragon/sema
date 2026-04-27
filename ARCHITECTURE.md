@@ -42,7 +42,7 @@ Does not own:
 - The Rust types of records (those live in
   [signal](https://github.com/LiGoldragon/signal); the former
   nexus-schema crate was absorbed there).
-- The validator pipeline (that's criome; CANON-MISSING).
+- The validator pipeline (that's criome).
 - Signal envelope or wire format (that's
   [signal](https://github.com/LiGoldragon/signal)).
 - Artifact bytes (those live in
