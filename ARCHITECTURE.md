@@ -85,19 +85,25 @@ naturally answer "what was the schema yesterday."
 
 ```
 src/
-├── lib.rs    — module entry; opens / closes the redb file
-├── tables.rs — table definitions, key/value codecs
-├── reader.rs — read paths
-└── writer.rs — write paths (called only from criome's
-                validator pipeline)
+└── lib.rs    — Sema struct (open/store/get) + Slot newtype + Error;
+                redb tables (records, meta) defined inline; tests
+                cover persistence + slot-allocation invariants
 ```
 
-(Currently `todo!()` skeleton.)
+The longer-term split into `tables.rs` / `reader.rs` /
+`writer.rs` lands when behaviour grows beyond M0's
+slot-counter + bytes-by-slot pair.
 
 ## Status
 
-**Skeleton-as-design**, day-one canonical. Backing types are in
-signal. Behavior fills as criome scaffolds.
+**Working M0 core.** `Sema::open`, `Sema::store(&[u8]) → Slot`,
+`Sema::get(Slot) → Option<Vec<u8>>` implemented and tested
+(7 tests cover monotone slot allocation starting at
+`SEED_RANGE_END = 1024`, persistence across reopens, empty-
+record round-trip, missing-slot returns None).
+
+Per-kind tables, change-log, `SlotBinding`, and bitemporal
+queries land as kinds beyond Node/Edge/Graph come online (M1+).
 
 ## Cross-cutting context
 

@@ -3,9 +3,10 @@
 The sema database — content-addressed record storage for typed
 program structure. Pseudo-sema while the system bootstraps: records
 are rkyv-archived Rust values from
-[nexus-schema](https://github.com/LiGoldragon/nexus-schema), stored
-in [redb](https://github.com/cberner/redb), addressed by their
-blake3 hash.
+[signal](https://github.com/LiGoldragon/signal), stored in
+[redb](https://github.com/cberner/redb), addressed by their slot.
+Content-addressing by BLAKE3 hash lands as kinds beyond Node /
+Edge / Graph come online.
 
 An opus is a database-level compilation unit — a collection of
 records rooted at a module that compile together to one artifact.
