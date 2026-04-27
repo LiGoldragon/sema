@@ -104,6 +104,26 @@ impl Sema {
             None => Ok(None),
         }
     }
+
+    /// Snapshot every record in the store as `(Slot, Vec<u8>)`
+    /// pairs. Eagerly collected — the redb transaction closes
+    /// before the result is returned. Order is by slot value.
+    ///
+    /// M0 query path: criome calls this to scan-and-try-decode
+    /// each record against the requested kind. Per-kind tables
+    /// (which would let criome iterate just one kind) are an
+    /// M1+ sema concern; for M0 the scan-everything cost is
+    /// acceptable at our record volume.
+    pub fn iter(&self) -> Result<Vec<(Slot, Vec<u8>)>> {
+        let txn = self.db.begin_read()?;
+        let records = txn.open_table(RECORDS)?;
+        let mut all = Vec::new();
+        for entry in records.iter()? {
+            let (slot_guard, bytes_guard) = entry?;
+            all.push((Slot(slot_guard.value()), bytes_guard.value().to_vec()));
+        }
+        Ok(all)
+    }
 }
 
 #[cfg(test)]
@@ -200,6 +220,44 @@ mod tests {
         }
         let sema = Sema::open(&path).unwrap();
         assert_eq!(sema.get(slot).unwrap(), Some(b"durable".to_vec()));
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn iter_returns_empty_for_fresh_store() {
+        let s = fresh();
+        let all = s.sema.iter().unwrap();
+        assert!(all.is_empty());
+    }
+
+    #[test]
+    fn iter_yields_every_record_in_slot_order() {
+        let s = fresh();
+        let s1 = s.sema.store(b"first").unwrap();
+        let s2 = s.sema.store(b"second").unwrap();
+        let s3 = s.sema.store(b"third").unwrap();
+        let all = s.sema.iter().unwrap();
+        assert_eq!(
+            all,
+            vec![
+                (s1, b"first".to_vec()),
+                (s2, b"second".to_vec()),
+                (s3, b"third".to_vec()),
+            ]
+        );
+    }
+
+    #[test]
+    fn iter_survives_across_reopens() {
+        let path = temp_path();
+        {
+            let sema = Sema::open(&path).unwrap();
+            let _ = sema.store(b"persists").unwrap();
+        }
+        let sema = Sema::open(&path).unwrap();
+        let all = sema.iter().unwrap();
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].1, b"persists".to_vec());
         let _ = std::fs::remove_file(&path);
     }
 }
