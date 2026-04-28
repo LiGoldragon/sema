@@ -135,3 +135,24 @@ fn iter_survives_across_reopens() {
     assert_eq!(all[0].1, b"persists".to_vec());
     let _ = std::fs::remove_file(&path);
 }
+
+#[test]
+fn reader_count_defaults_when_unset() {
+    let path = temp_path();
+    let sema = Sema::open(&path).unwrap();
+    assert_eq!(sema.reader_count().unwrap(), sema::DEFAULT_READER_COUNT);
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn reader_count_persists_across_reopens() {
+    let path = temp_path();
+    {
+        let sema = Sema::open(&path).unwrap();
+        sema.set_reader_count(8).unwrap();
+        assert_eq!(sema.reader_count().unwrap(), 8);
+    }
+    let sema = Sema::open(&path).unwrap();
+    assert_eq!(sema.reader_count().unwrap(), 8);
+    let _ = std::fs::remove_file(&path);
+}

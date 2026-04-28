@@ -47,12 +47,18 @@ impl From<Slot> for u64 {
 const RECORDS: TableDefinition<u64, &[u8]> = TableDefinition::new("records");
 const META: TableDefinition<&str, u64> = TableDefinition::new("meta");
 const NEXT_SLOT_KEY: &str = "next_slot";
+const READER_COUNT_KEY: &str = "reader_count";
 
 /// First user-allocatable slot. Slots `[0, SEED_RANGE_END)` are
 /// reserved for genesis / built-in records (see criome arch §10).
 /// Public so external callers can validate that user-asserted
 /// slots fall outside the reserved range.
 pub const SEED_RANGE_END: u64 = 1024;
+
+/// Default size of the read-pool when the `reader_count` meta
+/// entry has never been set. criome's `Engine` actor spawns
+/// this many `Reader` actors at startup.
+pub const DEFAULT_READER_COUNT: u32 = 4;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -143,5 +149,37 @@ impl Sema {
             all.push((Slot::from(slot_guard.value()), bytes_guard.value().to_vec()));
         }
         Ok(all)
+    }
+
+    /// Read the configured size of the criome read-pool. Returns
+    /// [`DEFAULT_READER_COUNT`] if the meta entry has never been
+    /// set. Intended to be called once at criome-daemon startup
+    /// so the `Engine` actor knows how many `Reader` actors to
+    /// spawn.
+    ///
+    /// Lives in the redb meta table for now (instance-level
+    /// infrastructure config). M2+ migrates this onto a typed
+    /// `CriomeInstance` record when the multi-instance kind
+    /// machinery lands.
+    pub fn reader_count(&self) -> Result<u32> {
+        let transaction = self.database.begin_read()?;
+        let meta = transaction.open_table(META)?;
+        match meta.get(READER_COUNT_KEY)? {
+            Some(guard) => Ok(guard.value() as u32),
+            None => Ok(DEFAULT_READER_COUNT),
+        }
+    }
+
+    /// Persist the read-pool size to the meta table. Takes
+    /// effect on the next [`Sema::reader_count`] call (and
+    /// therefore the next daemon startup).
+    pub fn set_reader_count(&self, count: u32) -> Result<()> {
+        let transaction = self.database.begin_write()?;
+        {
+            let mut meta = transaction.open_table(META)?;
+            meta.insert(READER_COUNT_KEY, count as u64)?;
+        }
+        transaction.commit()?;
+        Ok(())
     }
 }
