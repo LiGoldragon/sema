@@ -16,7 +16,7 @@ exists to serve sema:
   edits to apply to records here.
 - lojix-store holds the actual artifact bytes; sema records
   reference lojix-store by hash.
-- rsc projects records here → Rust source for nix to compile.
+- prism projects records here → Rust source for lojix-daemon's runtime-creation pipeline to compile.
 
 > **Sema is all we are concerned with** (per
 > [criome/ARCHITECTURE.md §1](https://github.com/LiGoldragon/criome/blob/main/ARCHITECTURE.md)).
@@ -59,7 +59,7 @@ rippling rehashes through dependents. Renames update the
 slot's display-name without rewriting any records anywhere.
 
 Display-name is global — one name per slot, globally
-consistent. rsc projections pick it up everywhere.
+consistent. prism projections pick it up everywhere.
 
 Slots are **global**, not opus-scoped.
 
@@ -73,7 +73,7 @@ today. There is no untyped-blob pool, no "miscellaneous
 record" table, no fallback storage path for records that
 don't fit a known kind. Kind growth happens by adding the
 typed struct + the closed-enum variant in signal and
-recompiling; once `rsc` lands, the type system will be
+recompiling; once `prism` lands, the type system will be
 projected from sema records and kind growth becomes a sema
 edit + recompile loop.
 
