@@ -67,19 +67,15 @@ Slots are **global**, not opus-scoped.
 
 Sema is the storage end of the project's [perfect-specificity
 invariant](https://github.com/LiGoldragon/criome/blob/main/ARCHITECTURE.md#invariant-d).
-Every record stored here belongs to a specific kind declared
-by a `KindDecl` record (which is itself a kind, stored
-self-describingly). There is no untyped-blob pool, no
-"miscellaneous record" table, no fallback storage path for
-records that don't fit a known kind — a record without a
-KindDecl cannot land. Kind growth happens via the criome
-self-host loop: assert a new KindDecl, recompile, the new
-kind has its own storage discipline (per-kind change-log,
-per-kind primary table, per-kind indexes).
-
-The schema isn't a separate concern bolted onto storage; it
-*is* records here. Bitemporal queries over `KindDecl`
-naturally answer "what was the schema yesterday."
+Every record stored here belongs to a specific kind defined
+in signal's closed Rust enum — the authoritative type system
+today. There is no untyped-blob pool, no "miscellaneous
+record" table, no fallback storage path for records that
+don't fit a known kind. Kind growth happens by adding the
+typed struct + the closed-enum variant in signal and
+recompiling; once `rsc` lands, the type system will be
+projected from sema records and kind growth becomes a sema
+edit + recompile loop.
 
 ## Code map
 
