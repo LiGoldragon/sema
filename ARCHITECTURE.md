@@ -97,10 +97,16 @@ slot-counter + bytes-by-slot pair.
 ## Status
 
 **Working M0 core.** `Sema::open`, `Sema::store(&[u8]) → Slot`,
-`Sema::get(Slot) → Option<Vec<u8>>` implemented and tested
-(7 tests cover monotone slot allocation starting at
+`Sema::get(Slot) → Option<Vec<u8>>`, `Sema::iter`,
+`Sema::reader_count`, `Sema::set_reader_count` implemented and
+tested (12 tests cover monotone slot allocation starting at
 `SEED_RANGE_END = 1024`, persistence across reopens, empty-
-record round-trip, missing-slot returns None).
+record round-trip, missing-slot returns None, and
+`reader_count` persistence with `DEFAULT_READER_COUNT = 4`).
+
+The `reader_count` API persists the read-pool size in sema's
+redb meta table — criome-daemon reads it at startup to size
+its `Reader` actor pool.
 
 Per-kind tables, change-log, `SlotBinding`, and bitemporal
 queries land as kinds beyond Node/Edge/Graph come online (M1+).
