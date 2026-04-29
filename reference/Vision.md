@@ -89,5 +89,5 @@ rendering moves to translation tables.
 ## Companion docs
 
 For implementation detail see the per-repo `ARCHITECTURE.md`
-files (criome, signal, nexus, sema, lojix) and the open design
+files (criome, signal, nexus, sema, forge) and the open design
 questions in `mentci/reports/`.

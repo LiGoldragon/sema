@@ -14,9 +14,9 @@ exists to serve sema:
 - nexus is text → criome writes records here.
 - signal is the rkyv envelope nexus uses to send criome
   edits to apply to records here.
-- lojix-store holds the actual artifact bytes; sema records
-  reference lojix-store by hash.
-- prism projects records here → Rust source for lojix-daemon's runtime-creation pipeline to compile.
+- arca holds the actual artifact bytes; sema records
+  reference arca by hash.
+- prism projects records here → Rust source for forge-daemon's runtime-creation pipeline to compile.
 
 > **Sema is all we are concerned with** (per
 > [criome/ARCHITECTURE.md §1](https://github.com/LiGoldragon/criome/blob/main/ARCHITECTURE.md)).
@@ -46,7 +46,7 @@ Does not own:
 - Signal envelope or wire format (that's
   [signal](https://github.com/LiGoldragon/signal)).
 - Artifact bytes (those live in
-  [lojix-store](https://github.com/LiGoldragon/lojix-store);
+  [arca](https://github.com/LiGoldragon/arca);
   sema records reference by hash).
 
 ## Identity model
@@ -109,7 +109,7 @@ queries land as kinds beyond Node/Edge/Graph come online (M1+).
 
 ## Cross-cutting context
 
-- Two-stores model (sema + lojix-store):
+- Two-stores model (sema + arca):
   [criome/ARCHITECTURE.md §5](https://github.com/LiGoldragon/criome/blob/main/ARCHITECTURE.md)
 - Per-kind change-log discipline:
   [criome/ARCHITECTURE.md §5](https://github.com/LiGoldragon/criome/blob/main/ARCHITECTURE.md)
