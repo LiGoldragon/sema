@@ -8,8 +8,10 @@ are rkyv-archived Rust values from
 Content-addressing by BLAKE3 hash lands as kinds beyond Node /
 Edge / Graph come online.
 
-An opus is a database-level compilation unit — a collection of
-records rooted at a module that compile together to one artifact.
+A `Graph` record is the database-level compilation unit — a
+flow-graph of `Node` records connected by `Edge` records that
+compile together to one artifact. The flow-graph IS the
+program.
 
 ## License
 

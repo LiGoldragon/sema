@@ -61,7 +61,7 @@ slot's display-name without rewriting any records anywhere.
 Display-name is global — one name per slot, globally
 consistent. prism projections pick it up everywhere.
 
-Slots are **global**, not opus-scoped.
+Slots are **global**, not graph-scoped.
 
 ## Stored by precise kind
 
