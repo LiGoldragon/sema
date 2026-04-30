@@ -6,15 +6,13 @@
 //! discipline lives one level up); sema just allocates a slot and
 //! persists.
 //!
-//! Slot allocation is monotone. The seed range
-//! `[0, SEED_RANGE_END)` is reserved per
-//! [criome/ARCHITECTURE.md §10
-//! ](https://github.com/LiGoldragon/criome/blob/main/ARCHITECTURE.md#10--project-wide-rules)
-//! so the counter starts at `SEED_RANGE_END` on first open. The
-//! counter is persisted in the `meta` table and restored across
-//! reopens.
+//! Slot allocation is monotone — the counter starts at 0 on first
+//! open, hands out 0, 1, 2, ... in assert order, and is persisted
+//! in the `meta` table across reopens. Genesis records are simply
+//! the records asserted first; they get the lowest slot values by
+//! virtue of order, not by reservation.
 //!
-//! M0 scope: store + get + iter + slot allocation. The full sema
+//! Scope: store + get + iter + slot allocation. The full sema
 //! design (per-kind tables, change-log, SlotBinding, bitemporal
 //! queries) lands as kinds beyond Node/Edge/Graph come online.
 
@@ -49,12 +47,6 @@ const META: TableDefinition<&str, u64> = TableDefinition::new("meta");
 const NEXT_SLOT_KEY: &str = "next_slot";
 const READER_COUNT_KEY: &str = "reader_count";
 
-/// First user-allocatable slot. Slots `[0, SEED_RANGE_END)` are
-/// reserved for genesis / built-in records (see criome arch §10).
-/// Public so external callers can validate that user-asserted
-/// slots fall outside the reserved range.
-pub const SEED_RANGE_END: u64 = 1024;
-
 /// Default size of the read-pool when the `reader_count` meta
 /// entry has never been set. criome's `Engine` actor spawns
 /// this many `Reader` actors at startup.
@@ -84,15 +76,15 @@ pub struct Sema {
 
 impl Sema {
     /// Open or create a sema database at `path`. Initialises the
-    /// slot counter to [`SEED_RANGE_END`] on first open; subsequent
-    /// opens preserve whatever counter value is on disk.
+    /// slot counter to 0 on first open; subsequent opens preserve
+    /// whatever counter value is on disk.
     pub fn open(path: &Path) -> Result<Self> {
         let database = Database::create(path)?;
         let transaction = database.begin_write()?;
         {
             let mut meta = transaction.open_table(META)?;
             if meta.get(NEXT_SLOT_KEY)?.is_none() {
-                meta.insert(NEXT_SLOT_KEY, SEED_RANGE_END)?;
+                meta.insert(NEXT_SLOT_KEY, 0u64)?;
             }
             // Touch records table to ensure it exists.
             let _ = transaction.open_table(RECORDS)?;
