@@ -19,7 +19,7 @@ program.
 
 ## Reference
 
-[reference/Vision.md](reference/Vision.md) — aspirational description
+`reference/Vision.md` — aspirational description
 of the mature sema format (universal typed-binary of meaning,
 self-transforming via quorum-signed spec changes, criome as the
 distributed web). Reference material for future direction; current
