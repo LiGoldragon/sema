@@ -3,7 +3,7 @@
 The sema database — content-addressed record storage for typed
 program structure. Pseudo-sema while the system bootstraps: records
 are rkyv-archived Rust values from
-[signal](https://github.com/LiGoldragon/signal), stored in
+signal, stored in
 [redb](https://github.com/cberner/redb), addressed by their slot.
 Content-addressing by BLAKE3 hash lands as kinds beyond Node /
 Edge / Graph come online.

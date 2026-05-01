@@ -19,7 +19,7 @@ exists to serve sema:
 - prism projects records here → Rust source for forge-daemon's runtime-creation pipeline to compile.
 
 > **Sema is all we are concerned with** (per
-> [criome/ARCHITECTURE.md §1](https://github.com/LiGoldragon/criome/blob/main/ARCHITECTURE.md)).
+> criome/ARCHITECTURE.md §1).
 
 ## Boundaries
 
@@ -27,7 +27,7 @@ Owns:
 
 - The redb file (one per criome instance).
 - Slot allocation: counter-minted by criome, freelist-reuse,
-  range `[0, 1024)` reserved for seed.
+  range `0, 1024)` reserved for seed.
 - `SlotBinding` table — slot → current content-hash + display-
   name. Bitemporal; slot-reuse is safe for historical queries.
 - Per-kind change-log tables — keyed by `(Slot, seq)`,
@@ -40,13 +40,13 @@ Owns:
 Does not own:
 
 - The Rust types of records (those live in
-  [signal](https://github.com/LiGoldragon/signal); the former
+  signal; the former
   nexus-schema crate was absorbed there).
 - The validator pipeline (that's criome).
 - Signal envelope or wire format (that's
-  [signal](https://github.com/LiGoldragon/signal)).
+  signal).
 - Artifact bytes (those live in
-  [arca](https://github.com/LiGoldragon/arca);
+  arca;
   sema records reference by hash).
 
 ## Identity model
@@ -66,7 +66,7 @@ Slots are **global**, not graph-scoped.
 ## Stored by precise kind
 
 Sema is the storage end of the project's [perfect-specificity
-invariant](https://github.com/LiGoldragon/criome/blob/main/ARCHITECTURE.md#invariant-d).
+invariant.
 Every record stored here belongs to a specific kind defined
 in signal's closed Rust enum — the authoritative type system
 today. There is no untyped-blob pool, no "miscellaneous
@@ -110,6 +110,6 @@ queries land as kinds beyond Node/Edge/Graph come online (M1+).
 ## Cross-cutting context
 
 - Two-stores model (sema + arca):
-  [criome/ARCHITECTURE.md §5](https://github.com/LiGoldragon/criome/blob/main/ARCHITECTURE.md)
+  criome/ARCHITECTURE.md §5
 - Per-kind change-log discipline:
-  [criome/ARCHITECTURE.md §5](https://github.com/LiGoldragon/criome/blob/main/ARCHITECTURE.md)
+  criome/ARCHITECTURE.md §5

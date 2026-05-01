@@ -90,4 +90,4 @@ rendering moves to translation tables.
 
 For implementation detail see the per-repo `ARCHITECTURE.md`
 files (criome, signal, nexus, sema, forge) and the open design
-questions in `mentci/reports/`.
+questions in `workspace/reports/`.
