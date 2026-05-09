@@ -8,6 +8,10 @@ signal, stored in
 Content-addressing by BLAKE3 hash lands as kinds beyond Node /
 Edge / Graph come online.
 
+The typed-kernel surface stores a Sema database header alongside
+the schema version, so each database records the rkyv format
+identity it was written with.
+
 A `Graph` record is the database-level compilation unit — a
 flow-graph of `Node` records connected by `Edge` records that
 compile together to one artifact. The flow-graph IS the

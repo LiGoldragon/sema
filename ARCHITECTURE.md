@@ -30,10 +30,13 @@ The kernel owns:
 - The closure-scoped txn helpers (`store.read(|txn| ...)`,
   `store.write(|txn| ...)`).
 - The standard `Error` enum (5 redb-error variants + rkyv +
-  io + schema-version-mismatch).
+  io + schema-version-mismatch + database-format-mismatch).
 - The version-skew guard (per `~/primary/skills/rust-discipline.md`
   §"Schema discipline" — known-slot record carrying the
   schema version, hard-fail on mismatch).
+- The database header guard naming Sema's rkyv format identity:
+  little-endian, pointer-width-32, unaligned archives, and
+  bytecheck validation.
 - The slot-allocation utility (`Slot(u64)` + monotone
   counter + `iter()` snapshot) — generally useful for any
   append-only store.
@@ -72,6 +75,8 @@ Sema (kernel) owns:
   error types + rkyv + io + schema-version mismatch).
 - Version-skew guard — known-slot record carrying schema
   version, checked at open, hard-fail on mismatch.
+- Database header guard — rkyv format identity stored in
+  `__sema_headers`, checked at open, hard-fail on mismatch.
 - The `Slot(u64)` newtype + monotone slot counter + `iter()`
   snapshot — utility for append-only stores.
 
@@ -141,12 +146,17 @@ src/
 └── lib.rs    — Sema struct (open + read/write txn helpers) +
                 Table<K, V: Archive> typed wrapper +
                 OwnedTableKey for iterator snapshots +
+                DatabaseHeader rkyv-format guard +
                 Slot newtype + slot counter + iter +
                 Error + version-skew guard
 ```
 
-Files split (`store.rs`, `table.rs`, `error.rs`, `version.rs`)
-land when the kernel grows past ~300 LoC.
+Internal Sema tables are namespaced with `__sema_`:
+`__sema_headers`, `__sema_meta`, and `__sema_records`.
+
+The remaining hygiene split (`store.rs`, `table.rs`,
+`error.rs`, `version.rs`) is tracked separately from the
+header/namespacing change.
 
 ## Status
 

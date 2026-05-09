@@ -72,6 +72,15 @@ sooner.
   the consumer's `Schema::version` on first open and refuses
   to open a file whose stored version doesn't match. Schema
   changes are coordinated upgrades, not silent migrations.
+- **Database format is checked at open.** The kernel persists a
+  `DatabaseHeader` naming Sema's rkyv format identity
+  (little-endian, pointer-width-32, unaligned, bytecheck) and
+  refuses to open a database whose stored header mismatches this
+  build.
+- **Internal tables are namespaced.** Sema-owned redb tables use
+  the `__sema_` prefix (`__sema_headers`, `__sema_meta`,
+  `__sema_records`). Consumer table names must not use that
+  prefix.
 - **Record types live in `signal-<consumer>`, not in
   `<consumer>-sema`.** The consumer's typed-storage crate
   references the wire crate's records as values; it owns
@@ -101,7 +110,7 @@ Sema (the kernel) owns:
   consumer schema open paths.
 - The standard `Error` enum (5 redb-error variants +
   rkyv + io + schema-version mismatch).
-- The version-skew guard.
+- The version-skew guard and database-format guard.
 - The `Slot(u64)` newtype + monotone slot counter +
   `iter()` snapshot — utility for append-only stores.
 

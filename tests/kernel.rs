@@ -4,9 +4,11 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use redb::TableDefinition;
+use redb::{ReadableDatabase, TableDefinition, TableHandle};
 use rkyv::{Archive, Deserialize, Serialize};
-use sema::{Error, Schema, SchemaVersion, Sema, Table};
+use sema::{
+    DatabaseHeader, Error, RkyvEndian, RkyvPointerWidth, Schema, SchemaVersion, Sema, Table,
+};
 
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -40,6 +42,27 @@ const SCHEMA_V2: Schema = Schema {
 
 const TOYS: Table<&str, ToyRecord> = Table::new("toys");
 const KEYED_BY_U64: Table<u64, ToyRecord> = Table::new("keyed_by_u64");
+const DATABASE_HEADERS: TableDefinition<&str, &[u8]> = TableDefinition::new("__sema_headers");
+
+struct HeaderEditor<'path> {
+    path: &'path PathBuf,
+}
+
+impl<'path> HeaderEditor<'path> {
+    fn new(path: &'path PathBuf) -> Self {
+        Self { path }
+    }
+
+    fn overwrite(&self, bytes: &[u8]) {
+        let database = redb::Database::create(self.path).unwrap();
+        let transaction = database.begin_write().unwrap();
+        {
+            let mut table = transaction.open_table(DATABASE_HEADERS).unwrap();
+            table.insert("database", bytes).unwrap();
+        }
+        transaction.commit().unwrap();
+    }
+}
 
 #[test]
 fn open_with_schema_writes_version_on_first_open() {
@@ -49,6 +72,87 @@ fn open_with_schema_writes_version_on_first_open() {
     }
     // re-open with same schema — should succeed
     let _sema = Sema::open_with_schema(&path, &SCHEMA_V1).unwrap();
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn open_writes_database_header_on_first_open() {
+    let path = temp_path();
+    {
+        let _sema = Sema::open_with_schema(&path, &SCHEMA_V1).unwrap();
+    }
+    let database = redb::Database::create(&path).unwrap();
+    let transaction = database.begin_read().unwrap();
+    let table = transaction.open_table(DATABASE_HEADERS).unwrap();
+    let guard = table.get("database").unwrap().expect("database header");
+    let header = rkyv::from_bytes::<DatabaseHeader, rkyv::rancor::Error>(guard.value()).unwrap();
+    assert_eq!(header, DatabaseHeader::current());
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn open_refuses_database_header_format_mismatch() {
+    let path = temp_path();
+    {
+        let _sema = Sema::open_with_schema(&path, &SCHEMA_V1).unwrap();
+    }
+    let mismatched = DatabaseHeader::new(
+        999,
+        RkyvEndian::Little,
+        RkyvPointerWidth::PointerWidth32,
+        true,
+        true,
+    );
+    let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&mismatched).unwrap();
+    HeaderEditor::new(&path).overwrite(bytes.as_slice());
+
+    let result = Sema::open_with_schema(&path, &SCHEMA_V1);
+    match result {
+        Err(Error::DatabaseFormatMismatch { expected, found }) => {
+            assert_eq!(expected, DatabaseHeader::current());
+            assert_eq!(found, mismatched);
+        }
+        Err(other) => panic!("expected DatabaseFormatMismatch, got {other:?}"),
+        Ok(_) => panic!("expected DatabaseFormatMismatch, got Ok(...)"),
+    }
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn open_refuses_invalid_database_header_bytes() {
+    let path = temp_path();
+    {
+        let _sema = Sema::open_with_schema(&path, &SCHEMA_V1).unwrap();
+    }
+    HeaderEditor::new(&path).overwrite(b"");
+
+    let result = Sema::open_with_schema(&path, &SCHEMA_V1);
+    match result {
+        Err(Error::DatabaseHeaderDecode { .. }) => {}
+        Err(other) => panic!("expected DatabaseHeaderDecode, got {other:?}"),
+        Ok(_) => panic!("expected DatabaseHeaderDecode, got Ok(...)"),
+    }
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn internal_tables_use_sema_namespace() {
+    let path = temp_path();
+    {
+        let _sema = Sema::open(&path).unwrap();
+    }
+    let database = redb::Database::create(&path).unwrap();
+    let transaction = database.begin_read().unwrap();
+    let table_names = transaction
+        .list_tables()
+        .unwrap()
+        .map(|table| table.name().to_string())
+        .collect::<Vec<_>>();
+    assert!(table_names.contains(&"__sema_headers".to_string()));
+    assert!(table_names.contains(&"__sema_meta".to_string()));
+    assert!(table_names.contains(&"__sema_records".to_string()));
+    assert!(!table_names.contains(&"meta".to_string()));
+    assert!(!table_names.contains(&"records".to_string()));
     let _ = std::fs::remove_file(&path);
 }
 

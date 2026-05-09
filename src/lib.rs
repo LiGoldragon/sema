@@ -43,7 +43,7 @@ use rkyv::util::AlignedVec;
 use rkyv::validation::Validator;
 use rkyv::validation::archive::ArchiveValidator;
 use rkyv::validation::shared::SharedValidator;
-use rkyv::{Archive, Serialize};
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize};
 use thiserror::Error;
 
 // ─── Slot — utility for append-only stores ─────────────────
@@ -98,6 +98,17 @@ pub enum Error {
         table: &'static str,
         source: rancor::Error,
     },
+    #[error("database header encode failed: {source}")]
+    DatabaseHeaderEncode { source: rancor::Error },
+    #[error("database header decode failed: {source}")]
+    DatabaseHeaderDecode { source: rancor::Error },
+    #[error(
+        "database format mismatch — file was written with {found:?}, this build expects {expected:?}"
+    )]
+    DatabaseFormatMismatch {
+        expected: DatabaseHeader,
+        found: DatabaseHeader,
+    },
     #[error(
         "schema version mismatch — file was written with v{found}, this build expects v{expected}"
     )]
@@ -125,6 +136,62 @@ impl From<rancor::Error> for Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+// ─── Database header — rkyv format guard ───────────────────
+
+/// Persisted database header naming the rkyv format choices
+/// this build expects.
+#[derive(Archive, Serialize, RkyvDeserialize, Debug, Clone, PartialEq, Eq)]
+#[rkyv(derive(Debug))]
+pub struct DatabaseHeader {
+    format_version: u32,
+    endian: RkyvEndian,
+    pointer_width: RkyvPointerWidth,
+    unaligned: bool,
+    bytecheck: bool,
+}
+
+impl DatabaseHeader {
+    pub const fn current() -> Self {
+        Self {
+            format_version: 1,
+            endian: RkyvEndian::Little,
+            pointer_width: RkyvPointerWidth::PointerWidth32,
+            unaligned: true,
+            bytecheck: true,
+        }
+    }
+
+    pub const fn new(
+        format_version: u32,
+        endian: RkyvEndian,
+        pointer_width: RkyvPointerWidth,
+        unaligned: bool,
+        bytecheck: bool,
+    ) -> Self {
+        Self {
+            format_version,
+            endian,
+            pointer_width,
+            unaligned,
+            bytecheck,
+        }
+    }
+}
+
+/// Endianness pinned into Sema's rkyv feature set.
+#[derive(Archive, Serialize, RkyvDeserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[rkyv(derive(Debug))]
+pub enum RkyvEndian {
+    Little,
+}
+
+/// Pointer width pinned into Sema's rkyv feature set.
+#[derive(Archive, Serialize, RkyvDeserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[rkyv(derive(Debug))]
+pub enum RkyvPointerWidth {
+    PointerWidth32,
+}
 
 // ─── Schema — kernel-mode open contract ─────────────────────
 
@@ -431,8 +498,10 @@ where
 
 // ─── Sema — the database handle ─────────────────────────────
 
-const RECORDS: TableDefinition<u64, &[u8]> = TableDefinition::new("records");
-const META: TableDefinition<&str, u64> = TableDefinition::new("meta");
+const RECORDS: TableDefinition<u64, &[u8]> = TableDefinition::new("__sema_records");
+const META: TableDefinition<&str, u64> = TableDefinition::new("__sema_meta");
+const DATABASE_HEADERS: TableDefinition<&str, &[u8]> = TableDefinition::new("__sema_headers");
+const DATABASE_HEADER_KEY: &str = "database";
 const NEXT_SLOT_KEY: &str = "next_slot";
 const READER_COUNT_KEY: &str = "reader_count";
 const SCHEMA_VERSION_KEY: &str = "schema_version";
@@ -453,6 +522,11 @@ pub struct Sema {
     path: PathBuf,
 }
 
+enum OpenMode<'schema> {
+    LegacySlotStore,
+    TypedKernel(&'schema Schema),
+}
+
 impl Sema {
     /// Open or create a sema database at `path` in **legacy
     /// mode** — initialises the slot counter, creates the
@@ -462,7 +536,7 @@ impl Sema {
     /// `<consumer>-sema` crates should use [`Self::open_with_schema`]
     /// instead.
     pub fn open(path: &Path) -> Result<Self> {
-        Self::open_inner(path, None)
+        Self::open_inner(path, OpenMode::LegacySlotStore)
     }
 
     /// Open or create a sema database at `path` with a
@@ -473,10 +547,10 @@ impl Sema {
     /// can mix typed-table use with append-only slot storage
     /// in the same file.
     pub fn open_with_schema(path: &Path, schema: &Schema) -> Result<Self> {
-        Self::open_inner(path, Some(schema))
+        Self::open_inner(path, OpenMode::TypedKernel(schema))
     }
 
-    fn open_inner(path: &Path, schema: Option<&Schema>) -> Result<Self> {
+    fn open_inner(path: &Path, mode: OpenMode<'_>) -> Result<Self> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
@@ -490,11 +564,12 @@ impl Sema {
         let transaction = database.begin_write()?;
         {
             let mut meta = transaction.open_table(META)?;
+            Self::ensure_database_header(&transaction)?;
             if meta.get(NEXT_SLOT_KEY)?.is_none() {
                 meta.insert(NEXT_SLOT_KEY, 0u64)?;
             }
             let _ = transaction.open_table(RECORDS)?;
-            if let Some(schema) = schema {
+            if let OpenMode::TypedKernel(schema) = mode {
                 Self::ensure_schema_version(&mut meta, schema.version, is_fresh_file, path)?;
                 // Tables are NOT pre-created here. Per redb's
                 // model, tables are typed (K, V); a list of
@@ -509,6 +584,23 @@ impl Sema {
             database,
             path: path.to_path_buf(),
         })
+    }
+
+    fn ensure_database_header(transaction: &WriteTransaction) -> Result<()> {
+        let mut headers = transaction.open_table(DATABASE_HEADERS)?;
+        let expected = DatabaseHeader::current();
+        let Some(stored) = headers.get(DATABASE_HEADER_KEY)? else {
+            let bytes = rkyv::to_bytes::<rancor::Error>(&expected)
+                .map_err(|source| Error::DatabaseHeaderEncode { source })?;
+            headers.insert(DATABASE_HEADER_KEY, bytes.as_slice())?;
+            return Ok(());
+        };
+        let found = rkyv::from_bytes::<DatabaseHeader, rancor::Error>(stored.value())
+            .map_err(|source| Error::DatabaseHeaderDecode { source })?;
+        if found != expected {
+            return Err(Error::DatabaseFormatMismatch { expected, found });
+        }
+        Ok(())
     }
 
     fn ensure_schema_version(
