@@ -30,16 +30,15 @@ struct ToyRecord {
 }
 
 const SCHEMA_V1: Schema = Schema {
-    tables: &["toys"],
-    version: SchemaVersion(1),
+    version: SchemaVersion::new(1),
 };
 
 const SCHEMA_V2: Schema = Schema {
-    tables: &["toys"],
-    version: SchemaVersion(2),
+    version: SchemaVersion::new(2),
 };
 
 const TOYS: Table<&str, ToyRecord> = Table::new("toys");
+const KEYED_BY_U64: Table<u64, ToyRecord> = Table::new("keyed_by_u64");
 
 #[test]
 fn open_with_schema_writes_version_on_first_open() {
@@ -61,12 +60,63 @@ fn open_with_mismatched_schema_version_hard_fails() {
     let result = Sema::open_with_schema(&path, &SCHEMA_V2);
     match result {
         Err(Error::SchemaVersionMismatch { expected, found }) => {
-            assert_eq!(expected, SchemaVersion(2));
-            assert_eq!(found, SchemaVersion(1));
+            assert_eq!(expected, SchemaVersion::new(2));
+            assert_eq!(found, SchemaVersion::new(1));
         }
         Err(other) => panic!("expected SchemaVersionMismatch, got {other:?}"),
         Ok(_) => panic!("expected SchemaVersionMismatch, got Ok(...)"),
     }
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn open_with_schema_refuses_legacy_file_lacking_schema_version() {
+    // The version-skew guard MUST refuse to retro-stamp an
+    // existing file that was created in legacy mode (no
+    // schema_version stored). Silent acceptance was the bug
+    // designer/66 §1.5 (Issue A) named.
+    let path = temp_path();
+    {
+        let legacy = Sema::open(&path).unwrap();
+        let _ = legacy.store(b"legacy bytes").unwrap();
+    }
+    let result = Sema::open_with_schema(&path, &SCHEMA_V1);
+    match result {
+        Err(Error::LegacyFileLacksSchema { expected, .. }) => {
+            assert_eq!(expected, SchemaVersion::new(1));
+        }
+        Err(other) => panic!("expected LegacyFileLacksSchema, got {other:?}"),
+        Ok(_) => panic!("expected LegacyFileLacksSchema, got Ok(...)"),
+    }
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn typed_tables_can_use_arbitrary_key_types() {
+    // Issue L: pre-creating tables with hard-coded K=&str
+    // locked out tables with other key types. After dropping
+    // the pre-create step, a Table<u64, V> works alongside a
+    // Table<&str, V> in the same file.
+    let path = temp_path();
+    let sema = Sema::open_with_schema(&path, &SCHEMA_V1).unwrap();
+    let toy = ToyRecord {
+        name: "u64-keyed".to_string(),
+        value: 100,
+    };
+    sema.write(|txn| KEYED_BY_U64.insert(txn, 42u64, &toy))
+        .unwrap();
+    let read_back = sema
+        .read(|txn| KEYED_BY_U64.get(txn, 42u64))
+        .unwrap()
+        .expect("u64-keyed value present");
+    assert_eq!(read_back, toy);
+    // and the &str-keyed table still works too
+    let other = ToyRecord {
+        name: "str-keyed".to_string(),
+        value: 200,
+    };
+    sema.write(|txn| TOYS.insert(txn, "k", &other)).unwrap();
+    assert_eq!(sema.read(|txn| TOYS.get(txn, "k")).unwrap().unwrap(), other);
     let _ = std::fs::remove_file(&path);
 }
 

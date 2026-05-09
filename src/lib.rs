@@ -94,6 +94,15 @@ pub enum Error {
         expected: SchemaVersion,
         found: SchemaVersion,
     },
+    #[error(
+        "existing sema file at {} lacks a schema version — refusing to retro-stamp v{expected}; \
+         either migrate the file explicitly or open a fresh path",
+        path.display()
+    )]
+    LegacyFileLacksSchema {
+        path: PathBuf,
+        expected: SchemaVersion,
+    },
     #[error("meta table missing slot counter — sema file may be corrupt")]
     MissingSlotCounter,
 }
@@ -108,32 +117,48 @@ pub type Result<T> = std::result::Result<T, Error>;
 
 // ─── Schema — kernel-mode open contract ─────────────────────
 
-/// A consumer's schema declaration: which tables exist plus
-/// the schema version that gates compatibility.
+/// A consumer's schema declaration: just the schema version
+/// today. Pass to [`Sema::open_with_schema`] at open time;
+/// the kernel writes the version on first open and refuses
+/// to open a file whose stored version doesn't match.
 ///
-/// Pass to [`Sema::open_with_schema`] at open time. The kernel
-/// writes the schema version on first open and refuses to
-/// open a file whose stored version doesn't match.
+/// **Tables aren't declared here.** Per redb's model, a
+/// table is uniquely identified by `(name, key_type,
+/// value_type)`. The full type information lives on the
+/// consumer's typed [`Table`] constants, not on a list of
+/// names. Tables get created lazily on first use through
+/// `Table::get` / `Table::insert`.
 ///
 /// Schemas are static so they can be declared at module top:
 ///
 /// ```ignore
-/// const SCHEMA: Schema = Schema {
-///     tables: &["messages", "locks", "deliveries"],
-///     version: SchemaVersion(1),
-/// };
+/// const SCHEMA: Schema = Schema { version: SchemaVersion::new(1) };
 /// ```
 #[derive(Debug, Clone, Copy)]
 pub struct Schema {
-    pub tables: &'static [&'static str],
     pub version: SchemaVersion,
 }
 
 /// Schema version. Bump on any layout change (added field,
 /// added table, removed column). The kernel hard-fails on
 /// mismatch — schema upgrades are coordinated, not silent.
+///
+/// Construct via [`SchemaVersion::new`]; read out via
+/// [`SchemaVersion::value`]. The wrapped field is private
+/// so callers can't construct invalid versions or compare
+/// raw u32s by accident.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct SchemaVersion(pub u32);
+pub struct SchemaVersion(u32);
+
+impl SchemaVersion {
+    pub const fn new(value: u32) -> Self {
+        Self(value)
+    }
+
+    pub const fn value(self) -> u32 {
+        self.0
+    }
+}
 
 impl std::fmt::Display for SchemaVersion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -200,13 +225,19 @@ where
             Strategy<Validator<ArchiveValidator<'b>, SharedValidator>, rancor::Error>,
         >,
 {
-    /// Read the typed value at `key`, if present.
+    /// Read the typed value at `key`, if present. Returns
+    /// `Ok(None)` if the table doesn't exist yet (it gets
+    /// created lazily on first write).
     pub fn get<'txn>(
         &self,
         txn: &'txn ReadTransaction,
         key: impl std::borrow::Borrow<K::SelfType<'txn>>,
     ) -> Result<Option<V>> {
-        let table = txn.open_table(self.definition())?;
+        let table = match txn.open_table(self.definition()) {
+            Ok(table) => table,
+            Err(redb::TableError::TableDoesNotExist(_)) => return Ok(None),
+            Err(other) => return Err(other.into()),
+        };
         let Some(guard) = table.get(key)? else {
             return Ok(None);
         };
@@ -228,13 +259,19 @@ where
         Ok(())
     }
 
-    /// Remove the entry at `key`. Returns whether anything was removed.
+    /// Remove the entry at `key`. Returns whether anything
+    /// was removed (false if the table doesn't exist or the
+    /// key isn't present).
     pub fn remove<'txn>(
         &self,
         txn: &'txn WriteTransaction,
         key: impl std::borrow::Borrow<K::SelfType<'txn>>,
     ) -> Result<bool> {
-        let mut table = txn.open_table(self.definition())?;
+        let mut table = match txn.open_table(self.definition()) {
+            Ok(table) => table,
+            Err(redb::TableError::TableDoesNotExist(_)) => return Ok(false),
+            Err(other) => return Err(other.into()),
+        };
         Ok(table.remove(key)?.is_some())
     }
 }
@@ -290,6 +327,12 @@ impl Sema {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
+        // Distinguish "fresh file" (first ever open) from
+        // "existing file" (already has bytes on disk). The
+        // version-skew guard treats them differently: fresh
+        // files get the schema stamped; existing files
+        // without a stamp are legacy and refused.
+        let is_fresh_file = !path.exists();
         let database = Database::create(path)?;
         let transaction = database.begin_write()?;
         {
@@ -299,12 +342,13 @@ impl Sema {
             }
             let _ = transaction.open_table(RECORDS)?;
             if let Some(schema) = schema {
-                Self::ensure_schema_version(&mut meta, schema.version)?;
-                drop(meta);
-                for table_name in schema.tables {
-                    let definition: TableDefinition<&str, &[u8]> = TableDefinition::new(table_name);
-                    let _ = transaction.open_table(definition)?;
-                }
+                Self::ensure_schema_version(&mut meta, schema.version, is_fresh_file, path)?;
+                // Tables are NOT pre-created here. Per redb's
+                // model, tables are typed (K, V); a list of
+                // names would prematurely commit them to one
+                // K type. Tables get created lazily on first
+                // `Table::get` / `Table::insert` with the
+                // consumer's actual K and V.
             }
         }
         transaction.commit()?;
@@ -317,17 +361,25 @@ impl Sema {
     fn ensure_schema_version(
         meta: &mut redb::Table<'_, &str, u64>,
         expected: SchemaVersion,
+        is_fresh_file: bool,
+        path: &Path,
     ) -> Result<()> {
         let stored = meta.get(SCHEMA_VERSION_KEY)?.map(|guard| guard.value());
-        match stored {
-            Some(value) => {
-                let found = SchemaVersion(value as u32);
+        match (stored, is_fresh_file) {
+            (Some(value), _) => {
+                let found = SchemaVersion::new(value as u32);
                 if found != expected {
                     return Err(Error::SchemaVersionMismatch { expected, found });
                 }
             }
-            None => {
-                meta.insert(SCHEMA_VERSION_KEY, expected.0 as u64)?;
+            (None, true) => {
+                meta.insert(SCHEMA_VERSION_KEY, expected.value() as u64)?;
+            }
+            (None, false) => {
+                return Err(Error::LegacyFileLacksSchema {
+                    path: path.to_path_buf(),
+                    expected,
+                });
             }
         }
         Ok(())
