@@ -24,7 +24,9 @@ The kernel owns:
 - The redb file lifecycle (open-or-create, ensure tables,
   parent-dir mkdir).
 - The typed `Table<K, V: Archive>` wrapper that hides rkyv
-  encode/decode at the table boundary.
+  encode/decode at the table boundary, can materialize
+  typed tables explicitly, and snapshots typed rows with
+  owned keys.
 - The closure-scoped txn helpers (`store.read(|txn| ...)`,
   `store.write(|txn| ...)`).
 - The standard `Error` enum (5 redb-error variants + rkyv +
@@ -40,8 +42,8 @@ Each consumer's typed layer (a separate crate, named
 `<consumer>-sema` per the signal-family naming convention)
 owns:
 
-- Its `Schema` constant declaring the table list + schema
-  version.
+- Its `Schema` constant declaring the schema version.
+- Its typed table constants.
 - Its typed table layouts (one table per record kind).
 - Its convenience open methods (canonical path discovery,
   default schema registration).
@@ -64,7 +66,8 @@ Sema (kernel) owns:
   ensure_tables).
 - Closure-scoped txn helpers.
 - Typed `Table<K, V: Archive>` wrapper; rkyv encode/decode
-  at the table boundary.
+  at the table boundary; `ensure`, `get`, `insert`,
+  `remove`, `iter`, and `range` table affordances.
 - The standard `Error` enum (typed `#[from]` for redb's 5
   error types + rkyv + io + schema-version mismatch).
 - Version-skew guard — known-slot record carrying schema
@@ -74,8 +77,9 @@ Sema (kernel) owns:
 
 Each consumer's typed layer (`<consumer>-sema`) owns:
 
-- Its `Schema` constant (table list + schema version).
-- Its typed table layouts.
+- Its `Schema` constant (schema version).
+- Its typed table layouts and explicit table-materialization
+  path.
 - Its open conventions (path discovery, schema registration).
 - Its migration helpers.
 
@@ -136,6 +140,7 @@ storage path for records that don't fit a known kind.
 src/
 └── lib.rs    — Sema struct (open + read/write txn helpers) +
                 Table<K, V: Archive> typed wrapper +
+                OwnedTableKey for iterator snapshots +
                 Slot newtype + slot counter + iter +
                 Error + version-skew guard
 ```

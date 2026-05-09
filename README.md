@@ -13,6 +13,18 @@ flow-graph of `Node` records connected by `Edge` records that
 compile together to one artifact. The flow-graph IS the
 program.
 
+## Test Commands
+
+The repo carries shell scripts for the named test surfaces. Run
+them through Nix so the pinned Rust toolchain is used:
+
+```sh
+nix run .#test
+nix run .#test-kernel-surface
+nix run .#test-legacy-slot-store
+nix run .#test-doc
+```
+
 ## License
 
 [License of Non-Authority](LICENSE.md).

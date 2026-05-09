@@ -4,6 +4,7 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use redb::TableDefinition;
 use rkyv::{Archive, Deserialize, Serialize};
 use sema::{Error, Schema, SchemaVersion, Sema, Table};
 
@@ -134,6 +135,113 @@ fn typed_table_round_trips_value() {
         .unwrap()
         .expect("value present");
     assert_eq!(read_back, original);
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn typed_table_ensure_materializes_empty_table() {
+    let path = temp_path();
+    let sema = Sema::open_with_schema(&path, &SCHEMA_V1).unwrap();
+    sema.write(|txn| TOYS.ensure(txn)).unwrap();
+    let rows = sema.read(|txn| TOYS.iter(txn)).unwrap();
+    assert!(rows.is_empty());
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn typed_table_iter_returns_owned_keys_and_values_in_key_order() {
+    let path = temp_path();
+    let sema = Sema::open_with_schema(&path, &SCHEMA_V1).unwrap();
+    let first = ToyRecord {
+        name: "first".to_string(),
+        value: 1,
+    };
+    let second = ToyRecord {
+        name: "second".to_string(),
+        value: 2,
+    };
+    let third = ToyRecord {
+        name: "third".to_string(),
+        value: 3,
+    };
+    sema.write(|txn| {
+        TOYS.insert(txn, "c", &third)?;
+        TOYS.insert(txn, "a", &first)?;
+        TOYS.insert(txn, "b", &second)?;
+        Ok(())
+    })
+    .unwrap();
+    let rows = sema.read(|txn| TOYS.iter(txn)).unwrap();
+    assert_eq!(
+        rows,
+        vec![
+            ("a".to_string(), first),
+            ("b".to_string(), second),
+            ("c".to_string(), third),
+        ]
+    );
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn typed_table_range_returns_owned_keys_and_values_in_key_order() {
+    let path = temp_path();
+    let sema = Sema::open_with_schema(&path, &SCHEMA_V1).unwrap();
+    for (key, value) in [("a", 1u32), ("b", 2u32), ("c", 3u32), ("d", 4u32)] {
+        let toy = ToyRecord {
+            name: key.to_string(),
+            value,
+        };
+        sema.write(|txn| TOYS.insert(txn, key, &toy)).unwrap();
+    }
+    let rows = sema.read(|txn| TOYS.range(txn, "b".."d")).unwrap();
+    assert_eq!(
+        rows,
+        vec![
+            (
+                "b".to_string(),
+                ToyRecord {
+                    name: "b".to_string(),
+                    value: 2
+                }
+            ),
+            (
+                "c".to_string(),
+                ToyRecord {
+                    name: "c".to_string(),
+                    value: 3
+                }
+            ),
+        ]
+    );
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn typed_table_iter_returns_empty_when_table_is_missing() {
+    let path = temp_path();
+    let sema = Sema::open_with_schema(&path, &SCHEMA_V1).unwrap();
+    let rows = sema.read(|txn| TOYS.iter(txn)).unwrap();
+    assert!(rows.is_empty());
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn invalid_rkyv_value_fails_loudly_with_table_context() {
+    let path = temp_path();
+    let sema = Sema::open_with_schema(&path, &SCHEMA_V1).unwrap();
+    sema.write(|txn| {
+        let mut table = txn.open_table(TableDefinition::<&str, &[u8]>::new("toys"))?;
+        table.insert("bad", b"".as_slice())?;
+        Ok(())
+    })
+    .unwrap();
+    let result = sema.read(|txn| TOYS.get(txn, "bad"));
+    match result {
+        Err(Error::RkyvDecode { table, .. }) => assert_eq!(table, "toys"),
+        Err(other) => panic!("expected RkyvDecode, got {other:?}"),
+        Ok(other) => panic!("expected RkyvDecode, got {other:?}"),
+    }
     let _ = std::fs::remove_file(&path);
 }
 

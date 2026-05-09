@@ -27,6 +27,7 @@
 //! open time.
 
 use std::marker::PhantomData;
+use std::ops::RangeBounds;
 use std::path::{Path, PathBuf};
 
 use redb::{
@@ -87,6 +88,16 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("rkyv: {0}")]
     Rkyv(rancor::Error),
+    #[error("rkyv encode failed for table {table}: {source}")]
+    RkyvEncode {
+        table: &'static str,
+        source: rancor::Error,
+    },
+    #[error("rkyv decode failed for table {table}: {source}")]
+    RkyvDecode {
+        table: &'static str,
+        source: rancor::Error,
+    },
     #[error(
         "schema version mismatch — file was written with v{found}, this build expects v{expected}"
     )]
@@ -213,6 +224,90 @@ where
     fn definition(&self) -> TableDefinition<'_, K, &'static [u8]> {
         TableDefinition::new(self.name)
     }
+
+    /// Materialize this table in the database without writing
+    /// a row. Consumer typed layers call this from their own
+    /// schema open path when they want table existence checked
+    /// eagerly instead of waiting for first insert.
+    pub fn ensure(&self, txn: &WriteTransaction) -> Result<()> {
+        let _table = txn.open_table(self.definition())?;
+        Ok(())
+    }
+}
+
+/// A redb key whose value can be owned outside the transaction
+/// that yielded it.
+///
+/// redb keys are often borrowed at read time (`&str`, `&[u8]`).
+/// Sema's table iteration methods eagerly collect rows and close
+/// the read transaction before returning, so those borrowed keys
+/// need an owned shape.
+pub trait OwnedTableKey: redb::Key + 'static {
+    type Owned;
+
+    fn owned_key(value: Self::SelfType<'_>) -> Self::Owned;
+}
+
+macro_rules! impl_copy_owned_table_key {
+    ($($key:ty),* $(,)?) => {
+        $(
+            impl OwnedTableKey for $key {
+                type Owned = $key;
+
+                fn owned_key(value: Self::SelfType<'_>) -> Self::Owned {
+                    value
+                }
+            }
+        )*
+    };
+}
+
+impl_copy_owned_table_key!(
+    (),
+    bool,
+    char,
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+);
+
+impl OwnedTableKey for &'static str {
+    type Owned = String;
+
+    fn owned_key(value: Self::SelfType<'_>) -> Self::Owned {
+        value.to_string()
+    }
+}
+
+impl OwnedTableKey for String {
+    type Owned = String;
+
+    fn owned_key(value: Self::SelfType<'_>) -> Self::Owned {
+        value
+    }
+}
+
+impl OwnedTableKey for &'static [u8] {
+    type Owned = Vec<u8>;
+
+    fn owned_key(value: Self::SelfType<'_>) -> Self::Owned {
+        value.to_vec()
+    }
+}
+
+impl<const LENGTH: usize> OwnedTableKey for &'static [u8; LENGTH] {
+    type Owned = [u8; LENGTH];
+
+    fn owned_key(value: Self::SelfType<'_>) -> Self::Owned {
+        *value
+    }
 }
 
 impl<K, V> Table<K, V>
@@ -241,9 +336,7 @@ where
         let Some(guard) = table.get(key)? else {
             return Ok(None);
         };
-        let bytes = guard.value();
-        let value = rkyv::from_bytes::<V, rancor::Error>(bytes).map_err(Error::Rkyv)?;
-        Ok(Some(value))
+        Ok(Some(self.decode_value(guard.value())?))
     }
 
     /// Insert `value` at `key`, overwriting any existing value.
@@ -253,7 +346,10 @@ where
         key: impl std::borrow::Borrow<K::SelfType<'txn>>,
         value: &V,
     ) -> Result<()> {
-        let bytes = rkyv::to_bytes::<rancor::Error>(value).map_err(Error::Rkyv)?;
+        let bytes = rkyv::to_bytes::<rancor::Error>(value).map_err(|source| Error::RkyvEncode {
+            table: self.name,
+            source,
+        })?;
         let mut table = txn.open_table(self.definition())?;
         table.insert(key, bytes.as_slice())?;
         Ok(())
@@ -273,6 +369,63 @@ where
             Err(other) => return Err(other.into()),
         };
         Ok(table.remove(key)?.is_some())
+    }
+
+    /// Snapshot every typed row in key order. The result owns
+    /// both keys and values, so the redb transaction can close
+    /// before callers use the rows.
+    pub fn iter(&self, txn: &ReadTransaction) -> Result<Vec<(K::Owned, V)>>
+    where
+        K: OwnedTableKey,
+    {
+        let table = match txn.open_table(self.definition()) {
+            Ok(table) => table,
+            Err(redb::TableError::TableDoesNotExist(_)) => return Ok(Vec::new()),
+            Err(other) => return Err(other.into()),
+        };
+        let mut rows = Vec::new();
+        for entry in table.iter()? {
+            let (key_guard, bytes_guard) = entry?;
+            rows.push((
+                K::owned_key(key_guard.value()),
+                self.decode_value(bytes_guard.value())?,
+            ));
+        }
+        Ok(rows)
+    }
+
+    /// Snapshot typed rows whose keys fall inside `range`.
+    /// Order is redb key order.
+    pub fn range<'range, KeyRange>(
+        &self,
+        txn: &ReadTransaction,
+        range: impl RangeBounds<KeyRange> + 'range,
+    ) -> Result<Vec<(K::Owned, V)>>
+    where
+        K: OwnedTableKey,
+        KeyRange: std::borrow::Borrow<K::SelfType<'range>> + 'range,
+    {
+        let table = match txn.open_table(self.definition()) {
+            Ok(table) => table,
+            Err(redb::TableError::TableDoesNotExist(_)) => return Ok(Vec::new()),
+            Err(other) => return Err(other.into()),
+        };
+        let mut rows = Vec::new();
+        for entry in table.range(range)? {
+            let (key_guard, bytes_guard) = entry?;
+            rows.push((
+                K::owned_key(key_guard.value()),
+                self.decode_value(bytes_guard.value())?,
+            ));
+        }
+        Ok(rows)
+    }
+
+    fn decode_value(&self, bytes: &[u8]) -> Result<V> {
+        rkyv::from_bytes::<V, rancor::Error>(bytes).map_err(|source| Error::RkyvDecode {
+            table: self.name,
+            source,
+        })
     }
 }
 

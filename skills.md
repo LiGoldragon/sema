@@ -79,6 +79,11 @@ sooner.
 - **Sema's slot allocation is a utility, not a policy.**
   Append-only stores can use `Slot(u64)` + the monotone
   counter; non-append-only stores ignore them entirely.
+- **Typed table scans return owned keys.** redb yields borrowed
+  keys for borrowed key types (`&str`, `&[u8]`). Sema's
+  `Table::iter` and `Table::range` eagerly collect rows and
+  return `OwnedTableKey::Owned`, so callers never hold redb
+  guards across the transaction boundary.
 
 ---
 
@@ -92,11 +97,28 @@ Sema (the kernel) owns:
   `store.write(|txn| ...)`).
 - The typed `Table<K, V: Archive>` wrapper — hides rkyv
   encode/decode at the table boundary.
+- `Table::ensure` for explicit typed-table materialization in
+  consumer schema open paths.
 - The standard `Error` enum (5 redb-error variants +
   rkyv + io + schema-version mismatch).
 - The version-skew guard.
 - The `Slot(u64)` newtype + monotone slot counter +
   `iter()` snapshot — utility for append-only stores.
+
+## Test command surface
+
+Use the repo-local scripts through Nix:
+
+```sh
+nix run .#test
+nix run .#test-kernel-surface
+nix run .#test-legacy-slot-store
+nix run .#test-doc
+```
+
+`nix flake check` remains the pre-commit gate. The scripts are
+for named inner-loop surfaces and are exposed as flake apps so
+the pinned Rust toolchain is used.
 
 Sema does **not** own:
 

@@ -26,11 +26,63 @@
           strictDeps = true;
         };
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+        scriptApplication = name: script: pkgs.writeShellApplication {
+          name = "sema-${name}";
+          runtimeInputs = [
+            toolchain
+          ];
+          text = ''
+            exec "${script}" "$@"
+          '';
+        };
+        testScript = scriptApplication "test" ./scripts/test;
+        testDocScript = scriptApplication "test-doc" ./scripts/test-doc;
+        testKernelSurfaceScript = scriptApplication "test-kernel-surface" ./scripts/test-kernel-surface;
+        testLegacySlotStoreScript = scriptApplication "test-legacy-slot-store" ./scripts/test-legacy-slot-store;
       in
       {
-        packages.default = craneLib.buildPackage (commonArgs // {
-          inherit cargoArtifacts;
-        });
+        packages = {
+          default = craneLib.buildPackage (commonArgs // {
+            inherit cargoArtifacts;
+          });
+
+          test = testScript;
+          test-doc = testDocScript;
+          test-kernel-surface = testKernelSurfaceScript;
+          test-legacy-slot-store = testLegacySlotStoreScript;
+        };
+
+        apps = {
+          default = {
+            type = "app";
+            program = "${testScript}/bin/sema-test";
+            meta.description = "Run sema's full test suite";
+          };
+
+          test = {
+            type = "app";
+            program = "${testScript}/bin/sema-test";
+            meta.description = "Run sema's full test suite";
+          };
+
+          test-doc = {
+            type = "app";
+            program = "${testDocScript}/bin/sema-test-doc";
+            meta.description = "Run sema's documentation tests";
+          };
+
+          test-kernel-surface = {
+            type = "app";
+            program = "${testKernelSurfaceScript}/bin/sema-test-kernel-surface";
+            meta.description = "Run sema's typed-kernel integration tests";
+          };
+
+          test-legacy-slot-store = {
+            type = "app";
+            program = "${testLegacySlotStoreScript}/bin/sema-test-legacy-slot-store";
+            meta.description = "Run sema's legacy slot-store integration tests";
+          };
+        };
 
         checks = {
           # ─── Build ───────────────────────────────────────────
