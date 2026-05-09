@@ -1,10 +1,9 @@
 # ARCHITECTURE — sema
 
 The workspace's typed-database substrate. redb-backed; values
-are rkyv-archived; tables are typed and version-guarded. The
-**kernel** for every sema-flavored store in the workspace
-(criome's records, persona-sema's persona-state, future
-ecosystem stores).
+are rkyv-archived; tables are typed and version-guarded. Sema is
+the **kernel** for every sema-flavored store in the workspace:
+criome's records, Persona's state, and other ecosystem stores.
 
 ## Role
 
@@ -52,6 +51,11 @@ The records' Rust types live in the matching `signal-<consumer>`
 contract crate, not in `<consumer>-sema`. The wire side
 defines the records; the storage side persists them.
 
+Runtime write ordering is a consumer concern. In Persona, the
+store actor owns the mailbox, transaction order, and commit
+visibility; `persona-sema` owns only the table layout and schema
+guard over this kernel.
+
 ## Boundaries
 
 Sema (kernel) owns:
@@ -75,25 +79,31 @@ Each consumer's typed layer (`<consumer>-sema`) owns:
 - Its open conventions (path discovery, schema registration).
 - Its migration helpers.
 
+Each consumer's runtime store actor owns:
+
+- The mailbox into the database.
+- Transaction sequencing.
+- Commit-before-effect ordering.
+- Subscription events emitted after durable state changes.
+
 Sema does **not** own:
 
 - Record Rust types — those live in the matching
   `signal-<consumer>` contract crate.
 - Per-ecosystem table layouts — those live in
   `<consumer>-sema`.
+- Runtime write ordering or actor mailboxes — those live in the
+  consumer's daemon or dedicated store actor.
 - The validator pipeline — that's the consumer's daemon
   (criome, persona-router, etc.).
 - Wire format — that's `signal-core` + `signal-<consumer>`.
 - Artifact bytes — those live in `arca`; sema records
   reference by hash.
 
-Criome's specifics that USED to live in sema (and now live
-in criome itself):
+Criome owns its runtime-specific configuration:
 
 - `reader_count` / `set_reader_count` — criome-specific
   read-pool config; lives in criome.
-- The "exclusively owned by criome" boundary — dropped;
-  sema is now multi-ecosystem.
 
 ## Identity model
 
@@ -111,17 +121,14 @@ Slots are **global**, not graph-scoped.
 
 ## Stored by precise kind
 
-Sema is the storage end of the project's [perfect-specificity
+Sema is the storage end of the project's perfect-specificity
 invariant.
 Every record stored here belongs to a specific kind defined
-in signal's closed Rust enum — the authoritative type system
-today. There is no untyped-blob pool, no "miscellaneous
-record" table, no fallback storage path for records that
-don't fit a known kind. Kind growth happens by adding the
-typed struct + the closed-enum variant in signal and
-recompiling; once `prism` lands, the type system will be
-projected from sema records and kind growth becomes a sema
-edit + recompile loop.
+in a signal-family closed Rust type — for criome that is this
+repo's companion `signal` crate; for Persona that is
+`signal-persona` plus the relevant channel contract. There is no
+untyped-blob pool, no "miscellaneous record" table, no fallback
+storage path for records that don't fit a known kind.
 
 ## Code map
 
@@ -138,26 +145,19 @@ land when the kernel grows past ~300 LoC.
 
 ## Status
 
-**Kernel role.** Migration in progress (per
-`~/primary/reports/designer/63-sema-as-workspace-database-library.md`):
-
-- Existing M0 surface (`Sema::open`, `Sema::store`, `Sema::get`,
-  `Sema::iter`) preserved and tested (12 existing tests).
-- New kernel surface lands additively: `Store::open(path, schema)`,
-  `Table<K, V>::get/insert/iter`, `store.read/write` closures,
-  `version-skew guard at open`.
-- Criome-specific bits (`reader_count`, `set_reader_count`,
-  "exclusively owned by criome" boundary) move to criome.
-
-`persona-sema` (the second sema-flavored consumer; renamed
-from `persona-store`) lands when persona's typed table
-layout is built.
+**Kernel role.** Sema is the shared database kernel. Consumer
+layers such as `persona-sema` define typed table layouts over it;
+runtime store actors own sequencing and external effects.
 
 ## Cross-cutting context
 
 - Sema-as-kernel design: `~/primary/reports/designer/63-sema-as-workspace-database-library.md`
 - Persona's typed wire records (the values persona-sema
   persists): `signal-persona/`
+- Persona's store layer over this kernel:
+  `persona-sema/ARCHITECTURE.md`
+- Persona's channel choreography:
+  `~/primary/reports/designer/72-harmonized-implementation-plan.md`
 - Two-stores model (sema + arca): `criome/ARCHITECTURE.md` §5
 - Per-kind change-log discipline (criome's specific layer):
   `criome/ARCHITECTURE.md` §5
