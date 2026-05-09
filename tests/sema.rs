@@ -5,7 +5,7 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use sema::{Sema, Slot, SEED_RANGE_END};
+use sema::{Sema, Slot};
 
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -35,10 +35,10 @@ fn fresh() -> TempSema {
 }
 
 #[test]
-fn first_slot_is_seed_range_end() {
+fn first_slot_is_zero() {
     let temp = fresh();
     let slot = temp.sema.store(b"first").unwrap();
-    assert_eq!(slot, Slot::from(SEED_RANGE_END));
+    assert_eq!(slot, Slot::from(0u64));
 }
 
 #[test]
@@ -81,7 +81,7 @@ fn slot_counter_persists_across_reopens() {
     }
     let sema = Sema::open(&path).unwrap();
     let slot = sema.store(b"c").unwrap();
-    assert_eq!(slot, Slot::from(SEED_RANGE_END + 2));
+    assert_eq!(slot, Slot::from(2u64));
     let _ = std::fs::remove_file(&path);
 }
 

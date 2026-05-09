@@ -1,32 +1,59 @@
-//! sema — the record store.
+//! sema — the workspace's typed-database kernel.
 //!
-//! redb-backed slot → bytes table plus a meta table holding the
-//! slot-allocation counter. Records arrive as opaque rkyv-encoded
-//! bytes from criome (sema doesn't depend on signal — the type
-//! discipline lives one level up); sema just allocates a slot and
-//! persists.
+//! redb-backed; values are rkyv-archived; tables are typed
+//! and version-guarded. This crate is the kernel; per-ecosystem
+//! typed layers live in `<consumer>-sema` crates (criome's
+//! records today, `persona-sema` in flight).
 //!
-//! Slot allocation is monotone — the counter starts at 0 on first
-//! open, hands out 0, 1, 2, ... in assert order, and is persisted
-//! in the `meta` table across reopens. Genesis records are simply
-//! the records asserted first; they get the lowest slot values by
-//! virtue of order, not by reservation.
+//! See `ARCHITECTURE.md` for the role/boundaries; see
+//! `~/primary/reports/designer/63-sema-as-workspace-database-library.md`
+//! for the design.
 //!
-//! Scope: store + get + iter + slot allocation. The full sema
-//! design (per-kind tables, change-log, SlotBinding, bitemporal
-//! queries) lands as kinds beyond Node/Edge/Graph come online.
+//! ## Surface
+//!
+//! Two modes:
+//!
+//! - **Legacy slot store** — `Sema::open(path)`, `store(&[u8])
+//!   → Slot`, `get(Slot) → Option<Vec<u8>>`, `iter() →
+//!   Vec<(Slot, Vec<u8>)>`. Append-only utility used by
+//!   criome's record store today.
+//! - **Typed kernel** — `Sema::open_with_schema(path, &Schema)`,
+//!   `Table<K, V: Archive>` typed wrappers, closure-scoped
+//!   `read(|txn| ...)` / `write(|txn| ...)` helpers,
+//!   version-skew guard at open. The shape every
+//!   `<consumer>-sema` crate consumes.
+//!
+//! Both modes coexist on the same `Sema` handle; choose at
+//! open time.
 
-use std::path::Path;
+use std::marker::PhantomData;
+use std::path::{Path, PathBuf};
 
-use redb::{Database, ReadableDatabase, ReadableTable, TableDefinition};
+use redb::{
+    Database, ReadTransaction, ReadableDatabase, ReadableTable, TableDefinition, WriteTransaction,
+};
+use rkyv::api::high::HighDeserializer;
+use rkyv::bytecheck::CheckBytes;
+use rkyv::rancor::{self, Strategy};
+use rkyv::ser::Serializer;
+use rkyv::ser::allocator::ArenaHandle;
+use rkyv::ser::sharing::Share;
+use rkyv::util::AlignedVec;
+use rkyv::validation::Validator;
+use rkyv::validation::archive::ArchiveValidator;
+use rkyv::validation::shared::SharedValidator;
+use rkyv::{Archive, Serialize};
 use thiserror::Error;
 
-/// Slot identity — a u64 newtype matching `signal::Slot` semantics
-/// at the type-system layer (sema and signal are independent;
-/// criome bridges the two `Slot` types). Construct via
-/// [`Slot::from(value)`]; read out via `let value: u64 = slot.into()`.
-/// The wrapped field is private to keep callers honest about going
-/// through the conversion traits.
+// ─── Slot — utility for append-only stores ─────────────────
+
+/// Slot identity — a u64 newtype matching `signal_core::Slot`
+/// semantics at the type-system layer (sema and signal are
+/// independent; criome bridges the two `Slot` types).
+/// Construct via `Slot::from(value)`; read out via
+/// `let value: u64 = slot.into()`. The wrapped field is
+/// private to keep callers honest about going through the
+/// conversion traits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Slot(u64);
 
@@ -42,15 +69,7 @@ impl From<Slot> for u64 {
     }
 }
 
-const RECORDS: TableDefinition<u64, &[u8]> = TableDefinition::new("records");
-const META: TableDefinition<&str, u64> = TableDefinition::new("meta");
-const NEXT_SLOT_KEY: &str = "next_slot";
-const READER_COUNT_KEY: &str = "reader_count";
-
-/// Default size of the read-pool when the `reader_count` meta
-/// entry has never been set. criome's `Engine` actor spawns
-/// this many `Reader` actors at startup.
-pub const DEFAULT_READER_COUNT: u32 = 4;
+// ─── Error ──────────────────────────────────────────────────
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -64,21 +83,213 @@ pub enum Error {
     Table(#[from] redb::TableError),
     #[error("redb commit: {0}")]
     Commit(#[from] redb::CommitError),
+    #[error("io: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("rkyv: {0}")]
+    Rkyv(rancor::Error),
+    #[error(
+        "schema version mismatch — file was written with v{found}, this build expects v{expected}"
+    )]
+    SchemaVersionMismatch {
+        expected: SchemaVersion,
+        found: SchemaVersion,
+    },
     #[error("meta table missing slot counter — sema file may be corrupt")]
     MissingSlotCounter,
 }
 
+impl From<rancor::Error> for Error {
+    fn from(value: rancor::Error) -> Self {
+        Self::Rkyv(value)
+    }
+}
+
 pub type Result<T> = std::result::Result<T, Error>;
+
+// ─── Schema — kernel-mode open contract ─────────────────────
+
+/// A consumer's schema declaration: which tables exist plus
+/// the schema version that gates compatibility.
+///
+/// Pass to [`Sema::open_with_schema`] at open time. The kernel
+/// writes the schema version on first open and refuses to
+/// open a file whose stored version doesn't match.
+///
+/// Schemas are static so they can be declared at module top:
+///
+/// ```ignore
+/// const SCHEMA: Schema = Schema {
+///     tables: &["messages", "locks", "deliveries"],
+///     version: SchemaVersion(1),
+/// };
+/// ```
+#[derive(Debug, Clone, Copy)]
+pub struct Schema {
+    pub tables: &'static [&'static str],
+    pub version: SchemaVersion,
+}
+
+/// Schema version. Bump on any layout change (added field,
+/// added table, removed column). The kernel hard-fails on
+/// mismatch — schema upgrades are coordinated, not silent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct SchemaVersion(pub u32);
+
+impl std::fmt::Display for SchemaVersion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+// ─── Table — typed wrapper around redb's TableDefinition ───
+
+/// A typed table: keys of type `K`, values of type `V` (which
+/// must be rkyv-archivable). The wrapper hides the encode/decode
+/// at the table boundary so consumers see typed Rust values
+/// in and out.
+///
+/// Declare at module top:
+///
+/// ```ignore
+/// const MESSAGES: Table<&str, Message> = Table::new("messages");
+/// ```
+///
+/// Use through the closure-scoped txn helpers:
+///
+/// ```ignore
+/// let message = sema.read(|txn| MESSAGES.get(&txn, "m-abc"))?;
+/// sema.write(|txn| MESSAGES.insert(&txn, "m-xyz", &new_message))?;
+/// ```
+pub struct Table<K, V>
+where
+    K: redb::Key + 'static,
+{
+    name: &'static str,
+    _key: PhantomData<K>,
+    _value: PhantomData<V>,
+}
+
+impl<K, V> Table<K, V>
+where
+    K: redb::Key + 'static,
+{
+    pub const fn new(name: &'static str) -> Self {
+        Self {
+            name,
+            _key: PhantomData,
+            _value: PhantomData,
+        }
+    }
+
+    pub fn name(&self) -> &'static str {
+        self.name
+    }
+
+    fn definition(&self) -> TableDefinition<'_, K, &'static [u8]> {
+        TableDefinition::new(self.name)
+    }
+}
+
+impl<K, V> Table<K, V>
+where
+    K: redb::Key + 'static,
+    V: Archive
+        + for<'a> Serialize<Strategy<Serializer<AlignedVec, ArenaHandle<'a>, Share>, rancor::Error>>,
+    V::Archived: rkyv::Deserialize<V, HighDeserializer<rancor::Error>>
+        + for<'b> CheckBytes<
+            Strategy<Validator<ArchiveValidator<'b>, SharedValidator>, rancor::Error>,
+        >,
+{
+    /// Read the typed value at `key`, if present.
+    pub fn get<'txn>(
+        &self,
+        txn: &'txn ReadTransaction,
+        key: impl std::borrow::Borrow<K::SelfType<'txn>>,
+    ) -> Result<Option<V>> {
+        let table = txn.open_table(self.definition())?;
+        let Some(guard) = table.get(key)? else {
+            return Ok(None);
+        };
+        let bytes = guard.value();
+        let value = rkyv::from_bytes::<V, rancor::Error>(bytes).map_err(Error::Rkyv)?;
+        Ok(Some(value))
+    }
+
+    /// Insert `value` at `key`, overwriting any existing value.
+    pub fn insert<'txn>(
+        &self,
+        txn: &'txn WriteTransaction,
+        key: impl std::borrow::Borrow<K::SelfType<'txn>>,
+        value: &V,
+    ) -> Result<()> {
+        let bytes = rkyv::to_bytes::<rancor::Error>(value).map_err(Error::Rkyv)?;
+        let mut table = txn.open_table(self.definition())?;
+        table.insert(key, bytes.as_slice())?;
+        Ok(())
+    }
+
+    /// Remove the entry at `key`. Returns whether anything was removed.
+    pub fn remove<'txn>(
+        &self,
+        txn: &'txn WriteTransaction,
+        key: impl std::borrow::Borrow<K::SelfType<'txn>>,
+    ) -> Result<bool> {
+        let mut table = txn.open_table(self.definition())?;
+        Ok(table.remove(key)?.is_some())
+    }
+}
+
+// ─── Sema — the database handle ─────────────────────────────
+
+const RECORDS: TableDefinition<u64, &[u8]> = TableDefinition::new("records");
+const META: TableDefinition<&str, u64> = TableDefinition::new("meta");
+const NEXT_SLOT_KEY: &str = "next_slot";
+const READER_COUNT_KEY: &str = "reader_count";
+const SCHEMA_VERSION_KEY: &str = "schema_version";
+
+/// Default size of the read-pool when the `reader_count` meta
+/// entry has never been set. criome's `Engine` actor spawns
+/// this many `Reader` actors at startup.
+///
+/// **Deprecated location.** This constant + the
+/// `reader_count`/`set_reader_count` accessors are
+/// criome-specific and should move to criome (per
+/// `~/primary/reports/designer/63-sema-as-workspace-database-library.md`).
+/// They remain here until criome's daemon has its own copy.
+pub const DEFAULT_READER_COUNT: u32 = 4;
 
 pub struct Sema {
     database: Database,
+    path: PathBuf,
 }
 
 impl Sema {
-    /// Open or create a sema database at `path`. Initialises the
-    /// slot counter to 0 on first open; subsequent opens preserve
-    /// whatever counter value is on disk.
+    /// Open or create a sema database at `path` in **legacy
+    /// mode** — initialises the slot counter, creates the
+    /// records + meta tables, no schema check.
+    ///
+    /// This is the M0 surface criome uses today. New
+    /// `<consumer>-sema` crates should use [`Self::open_with_schema`]
+    /// instead.
     pub fn open(path: &Path) -> Result<Self> {
+        Self::open_inner(path, None)
+    }
+
+    /// Open or create a sema database at `path` with a
+    /// declared schema. The kernel writes the schema version
+    /// on first open and hard-fails on mismatch.
+    ///
+    /// Also initialises the legacy slot store, so a consumer
+    /// can mix typed-table use with append-only slot storage
+    /// in the same file.
+    pub fn open_with_schema(path: &Path, schema: &Schema) -> Result<Self> {
+        Self::open_inner(path, Some(schema))
+    }
+
+    fn open_inner(path: &Path, schema: Option<&Schema>) -> Result<Self> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
         let database = Database::create(path)?;
         let transaction = database.begin_write()?;
         {
@@ -86,12 +297,71 @@ impl Sema {
             if meta.get(NEXT_SLOT_KEY)?.is_none() {
                 meta.insert(NEXT_SLOT_KEY, 0u64)?;
             }
-            // Touch records table to ensure it exists.
             let _ = transaction.open_table(RECORDS)?;
+            if let Some(schema) = schema {
+                Self::ensure_schema_version(&mut meta, schema.version)?;
+                drop(meta);
+                for table_name in schema.tables {
+                    let definition: TableDefinition<&str, &[u8]> = TableDefinition::new(table_name);
+                    let _ = transaction.open_table(definition)?;
+                }
+            }
         }
         transaction.commit()?;
-        Ok(Sema { database })
+        Ok(Sema {
+            database,
+            path: path.to_path_buf(),
+        })
     }
+
+    fn ensure_schema_version(
+        meta: &mut redb::Table<'_, &str, u64>,
+        expected: SchemaVersion,
+    ) -> Result<()> {
+        let stored = meta.get(SCHEMA_VERSION_KEY)?.map(|guard| guard.value());
+        match stored {
+            Some(value) => {
+                let found = SchemaVersion(value as u32);
+                if found != expected {
+                    return Err(Error::SchemaVersionMismatch { expected, found });
+                }
+            }
+            None => {
+                meta.insert(SCHEMA_VERSION_KEY, expected.0 as u64)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// Run a closure in a write transaction; commit on `Ok`,
+    /// roll back (drop) on `Err`. The kernel-mode happy path:
+    ///
+    /// ```ignore
+    /// sema.write(|txn| {
+    ///     MESSAGES.insert(&txn, "m-abc", &message)?;
+    ///     LOCKS.insert(&txn, "designer", &lock)?;
+    ///     Ok(())
+    /// })?;
+    /// ```
+    pub fn write<R>(&self, body: impl FnOnce(&WriteTransaction) -> Result<R>) -> Result<R> {
+        let txn = self.database.begin_write()?;
+        let result = body(&txn)?;
+        txn.commit()?;
+        Ok(result)
+    }
+
+    /// Run a closure in a read transaction; the txn drops at
+    /// end of scope.
+    pub fn read<R>(&self, body: impl FnOnce(&ReadTransaction) -> Result<R>) -> Result<R> {
+        let txn = self.database.begin_read()?;
+        body(&txn)
+    }
+
+    // ─── Legacy slot-store surface (utility for append-only stores) ─
 
     /// Allocate the next slot, persist `record_bytes` at that
     /// slot, return the assigned slot.
@@ -123,15 +393,12 @@ impl Sema {
         }
     }
 
-    /// Snapshot every record in the store as `(Slot, Vec<u8>)`
+    /// Snapshot every record in the slot store as `(Slot, Vec<u8>)`
     /// pairs. Eagerly collected — the redb transaction closes
     /// before the result is returned. Order is by slot value.
     ///
     /// M0 query path: criome calls this to scan-and-try-decode
-    /// each record against the requested kind. Per-kind tables
-    /// (which would let criome iterate just one kind) are an
-    /// M1+ sema concern; for M0 the scan-everything cost is
-    /// acceptable at our record volume.
+    /// each record against the requested kind.
     pub fn iter(&self) -> Result<Vec<(Slot, Vec<u8>)>> {
         let transaction = self.database.begin_read()?;
         let records = transaction.open_table(RECORDS)?;
@@ -143,16 +410,11 @@ impl Sema {
         Ok(all)
     }
 
-    /// Read the configured size of the criome read-pool. Returns
-    /// [`DEFAULT_READER_COUNT`] if the meta entry has never been
-    /// set. Intended to be called once at criome-daemon startup
-    /// so the `Engine` actor knows how many `Reader` actors to
-    /// spawn.
+    /// Read the configured size of the criome read-pool.
     ///
-    /// Lives in the redb meta table for now (instance-level
-    /// infrastructure config). M2+ migrates this onto a typed
-    /// `CriomeInstance` record when the multi-instance kind
-    /// machinery lands.
+    /// **Deprecated.** Criome-specific config; should move
+    /// into criome itself per
+    /// `~/primary/reports/designer/63-sema-as-workspace-database-library.md`.
     pub fn reader_count(&self) -> Result<u32> {
         let transaction = self.database.begin_read()?;
         let meta = transaction.open_table(META)?;
@@ -162,9 +424,9 @@ impl Sema {
         }
     }
 
-    /// Persist the read-pool size to the meta table. Takes
-    /// effect on the next [`Sema::reader_count`] call (and
-    /// therefore the next daemon startup).
+    /// Persist the read-pool size to the meta table.
+    ///
+    /// **Deprecated.** See [`Self::reader_count`].
     pub fn set_reader_count(&self, count: u32) -> Result<()> {
         let transaction = self.database.begin_write()?;
         {

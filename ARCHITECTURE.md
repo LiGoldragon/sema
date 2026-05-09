@@ -1,53 +1,99 @@
 # ARCHITECTURE — sema
 
-The records database. redb-backed; content-addressed by blake3
-of canonical rkyv encoding. Owned exclusively by **criome** —
-no other process opens this file.
+The workspace's typed-database substrate. redb-backed; values
+are rkyv-archived; tables are typed and version-guarded. The
+**kernel** for every sema-flavored store in the workspace
+(criome's records, persona-sema's persona-state, future
+ecosystem stores).
 
 ## Role
 
-Sema is the centre of the engine. Every concept the engine
-reasons about (code, schema, rules, plans, authz, history,
-world data) is expressed as records here. Everything else
-exists to serve sema:
+Sema is to **state** what `signal-core` is to **wire**: the
+kernel of typed primitives every consumer's typed layer
+depends on. Each ecosystem layers its own typed tables atop
+sema:
 
-- nexus is text → criome writes records here.
-- signal is the rkyv envelope nexus uses to send criome
-  edits to apply to records here.
-- arca holds the actual artifact bytes; sema records
-  reference arca by hash.
-- prism projects records here → Rust source for forge-daemon's runtime-creation pipeline to compile.
+```
+signal-core             sema
+  ├─ signal-persona       ├─ persona-sema
+  ├─ signal-forge         ├─ forge-sema  (future)
+  └─ signal-arca          └─ ...
+```
 
-> **Sema is all we are concerned with** (per
-> criome/ARCHITECTURE.md §1).
+The kernel owns:
+
+- The redb file lifecycle (open-or-create, ensure tables,
+  parent-dir mkdir).
+- The typed `Table<K, V: Archive>` wrapper that hides rkyv
+  encode/decode at the table boundary.
+- The closure-scoped txn helpers (`store.read(|txn| ...)`,
+  `store.write(|txn| ...)`).
+- The standard `Error` enum (5 redb-error variants + rkyv +
+  io + schema-version-mismatch).
+- The version-skew guard (per `~/primary/skills/rust-discipline.md`
+  §"Schema discipline" — known-slot record carrying the
+  schema version, hard-fail on mismatch).
+- The slot-allocation utility (`Slot(u64)` + monotone
+  counter + `iter()` snapshot) — generally useful for any
+  append-only store.
+
+Each consumer's typed layer (a separate crate, named
+`<consumer>-sema` per the signal-family naming convention)
+owns:
+
+- Its `Schema` constant declaring the table list + schema
+  version.
+- Its typed table layouts (one table per record kind).
+- Its convenience open methods (canonical path discovery,
+  default schema registration).
+- Its own migration helpers when needed.
+
+The records' Rust types live in the matching `signal-<consumer>`
+contract crate, not in `<consumer>-sema`. The wire side
+defines the records; the storage side persists them.
 
 ## Boundaries
 
-Owns:
+Sema (kernel) owns:
 
-- The redb file (one per criome instance).
-- Slot allocation: counter-minted by criome, freelist-reuse,
-  range `0, 1024)` reserved for seed.
-- `SlotBinding` table — slot → current content-hash + display-
-  name. Bitemporal; slot-reuse is safe for historical queries.
-- Per-kind change-log tables — keyed by `(Slot, seq)`,
-  carrying `ChangeLogEntry` records (rev, op, content hashes,
-  principal, sig-proof). Per-kind logs are ground truth.
-- Per-kind primary tables — current state of each record kind.
-- Per-kind index tables and a global revision index — derivable
-  views.
+- The redb file lifecycle (open-or-create, parent mkdir,
+  ensure_tables).
+- Closure-scoped txn helpers.
+- Typed `Table<K, V: Archive>` wrapper; rkyv encode/decode
+  at the table boundary.
+- The standard `Error` enum (typed `#[from]` for redb's 5
+  error types + rkyv + io + schema-version mismatch).
+- Version-skew guard — known-slot record carrying schema
+  version, checked at open, hard-fail on mismatch.
+- The `Slot(u64)` newtype + monotone slot counter + `iter()`
+  snapshot — utility for append-only stores.
 
-Does not own:
+Each consumer's typed layer (`<consumer>-sema`) owns:
 
-- The Rust types of records (those live in
-  signal; the former
-  nexus-schema crate was absorbed there).
-- The validator pipeline (that's criome).
-- Signal envelope or wire format (that's
-  signal).
-- Artifact bytes (those live in
-  arca;
-  sema records reference by hash).
+- Its `Schema` constant (table list + schema version).
+- Its typed table layouts.
+- Its open conventions (path discovery, schema registration).
+- Its migration helpers.
+
+Sema does **not** own:
+
+- Record Rust types — those live in the matching
+  `signal-<consumer>` contract crate.
+- Per-ecosystem table layouts — those live in
+  `<consumer>-sema`.
+- The validator pipeline — that's the consumer's daemon
+  (criome, persona-router, etc.).
+- Wire format — that's `signal-core` + `signal-<consumer>`.
+- Artifact bytes — those live in `arca`; sema records
+  reference by hash.
+
+Criome's specifics that USED to live in sema (and now live
+in criome itself):
+
+- `reader_count` / `set_reader_count` — criome-specific
+  read-pool config; lives in criome.
+- The "exclusively owned by criome" boundary — dropped;
+  sema is now multi-ecosystem.
 
 ## Identity model
 
@@ -81,35 +127,37 @@ edit + recompile loop.
 
 ```
 src/
-└── lib.rs    — Sema struct (open/store/get) + Slot newtype + Error;
-                redb tables (records, meta) defined inline; tests
-                cover persistence + slot-allocation invariants
+└── lib.rs    — Sema struct (open + read/write txn helpers) +
+                Table<K, V: Archive> typed wrapper +
+                Slot newtype + slot counter + iter +
+                Error + version-skew guard
 ```
 
-The longer-term split into `tables.rs` / `reader.rs` /
-`writer.rs` lands when behaviour grows beyond M0's
-slot-counter + bytes-by-slot pair.
+Files split (`store.rs`, `table.rs`, `error.rs`, `version.rs`)
+land when the kernel grows past ~300 LoC.
 
 ## Status
 
-**Working M0 core.** `Sema::open`, `Sema::store(&[u8]) → Slot`,
-`Sema::get(Slot) → Option<Vec<u8>>`, `Sema::iter`,
-`Sema::reader_count`, `Sema::set_reader_count` implemented and
-tested (12 tests cover monotone slot allocation starting at
-`SEED_RANGE_END = 1024`, persistence across reopens, empty-
-record round-trip, missing-slot returns None, and
-`reader_count` persistence with `DEFAULT_READER_COUNT = 4`).
+**Kernel role.** Migration in progress (per
+`~/primary/reports/designer/63-sema-as-workspace-database-library.md`):
 
-The `reader_count` API persists the read-pool size in sema's
-redb meta table — criome-daemon reads it at startup to size
-its `Reader` actor pool.
+- Existing M0 surface (`Sema::open`, `Sema::store`, `Sema::get`,
+  `Sema::iter`) preserved and tested (12 existing tests).
+- New kernel surface lands additively: `Store::open(path, schema)`,
+  `Table<K, V>::get/insert/iter`, `store.read/write` closures,
+  `version-skew guard at open`.
+- Criome-specific bits (`reader_count`, `set_reader_count`,
+  "exclusively owned by criome" boundary) move to criome.
 
-Per-kind tables, change-log, `SlotBinding`, and bitemporal
-queries land as kinds beyond Node/Edge/Graph come online (M1+).
+`persona-sema` (the second sema-flavored consumer; renamed
+from `persona-store`) lands when persona's typed table
+layout is built.
 
 ## Cross-cutting context
 
-- Two-stores model (sema + arca):
-  criome/ARCHITECTURE.md §5
-- Per-kind change-log discipline:
-  criome/ARCHITECTURE.md §5
+- Sema-as-kernel design: `~/primary/reports/designer/63-sema-as-workspace-database-library.md`
+- Persona's typed wire records (the values persona-sema
+  persists): `signal-persona/`
+- Two-stores model (sema + arca): `criome/ARCHITECTURE.md` §5
+- Per-kind change-log discipline (criome's specific layer):
+  `criome/ARCHITECTURE.md` §5

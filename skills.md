@@ -6,15 +6,19 @@
 
 ## What sema is
 
-Sema is the **records database** at the centre of the engine.
-redb-backed; content-addressed by blake3 of canonical rkyv
-encoding. Owned exclusively by criome — no other process opens
-this file. Every concept the engine reasons about (code, schema,
-rules, plans, authz, history, world data) is expressed as a
-record here. Everything else orbits sema.
+Sema is the **workspace's typed-database kernel**. redb-backed;
+values are rkyv-archived; tables are typed and version-guarded.
+Each ecosystem layers its own typed tables atop sema in a
+`<consumer>-sema` crate (criome's records today, `persona-sema`
+in flight; future `forge-sema`, etc.).
+
+Sema is to **state** what `signal-core` is to **wire**: the
+kernel of typed primitives every consumer's typed layer
+depends on.
 
 Read `ARCHITECTURE.md` for the role/boundaries summary: what
-sema owns, what it doesn't, and the per-kind table layout.
+sema (the kernel) owns, what each `<consumer>-sema` layer
+owns, and the surface each side has.
 
 ---
 
@@ -57,41 +61,53 @@ sooner.
 
 ## Hard invariants for an agent working here
 
-- **One redb file per criome instance.** Never open it from
-  another process; never stand up a parallel store.
-- **Per-kind change-log is ground truth.** Primary tables and
-  index tables are derivable; if they disagree with the log,
-  the log wins and the others are rebuilt.
-- **Slot range `[0, 1024)` is reserved for seed.** Don't allocate
-  application-level slots in this range.
-- **Slot allocation policy is criome's, not sema's.** Sema
-  exposes the binding tables; criome decides which slot a new
-  binding lands in.
-- **Record types live in signal, not sema.** Sema knows the
-  schema as data (so prism can read it and emit Rust source);
-  the Rust types themselves are signal's.
+- **One redb file per consumer.** Each `<consumer>-sema`
+  layer opens its own file; cross-consumer sharing is not a
+  thing. The kernel doesn't care which file; the consumer
+  decides.
+- **Values are rkyv-archived.** No JSON, no string-tagged
+  blobs, no untyped bytes. The kernel's `Table<K, V: Archive>`
+  enforces this.
+- **Schema version is checked at open.** The kernel writes
+  the consumer's `Schema::version` on first open and refuses
+  to open a file whose stored version doesn't match. Schema
+  changes are coordinated upgrades, not silent migrations.
+- **Record types live in `signal-<consumer>`, not in
+  `<consumer>-sema`.** The consumer's typed-storage crate
+  references the wire crate's records as values; it owns
+  the table layout, not the records.
+- **Sema's slot allocation is a utility, not a policy.**
+  Append-only stores can use `Slot(u64)` + the monotone
+  counter; non-append-only stores ignore them entirely.
 
 ---
 
 ## What this repo is canonical for
 
-Sema owns:
+Sema (the kernel) owns:
 
-- The redb file (per criome instance).
-- The `SlotBinding` table: slot → current content-hash +
-  display-name.
-- Per-kind change-log tables: keyed by `(Slot, seq)`, carrying
-  `ChangeLogEntry` records (rev, op, content hashes,
-  principal, sig-proof).
-- Per-kind primary tables — current state of each record kind.
-- Per-kind index tables and the global revision index.
+- The redb file lifecycle (open-or-create + parent mkdir +
+  ensure_tables).
+- Closure-scoped txn helpers (`store.read(|txn| ...)`,
+  `store.write(|txn| ...)`).
+- The typed `Table<K, V: Archive>` wrapper — hides rkyv
+  encode/decode at the table boundary.
+- The standard `Error` enum (5 redb-error variants +
+  rkyv + io + schema-version mismatch).
+- The version-skew guard.
+- The `Slot(u64)` newtype + monotone slot counter +
+  `iter()` snapshot — utility for append-only stores.
 
 Sema does **not** own:
 
-- The Rust types of records (signal).
-- The validator pipeline (criome).
-- The signal envelope or wire format (signal).
-- The artifact bytes (arca; sema records reference by hash).
+- Per-consumer schema, table layouts, or migration
+  helpers — those live in the consumer's
+  `<consumer>-sema` crate.
+- Record types — those live in `signal-<consumer>`.
+- Validator pipelines — those live in the consumer's
+  daemon (criome, persona-router, etc.).
+- Wire format — `signal-core` + `signal-<consumer>`.
+- Artifact bytes — `arca`.
 
 ---
 
