@@ -51,10 +51,10 @@ The records' Rust types live in the matching `signal-<consumer>`
 contract crate, not in `<consumer>-sema`. The wire side
 defines the records; the storage side persists them.
 
-Runtime write ordering is a consumer concern. In Persona, the
-store actor owns the mailbox, transaction order, and commit
-visibility; `persona-sema` owns only the table layout and schema
-guard over this kernel.
+Runtime write ordering is a consumer concern. In Persona, each
+state-bearing component actor owns the mailbox, transaction order,
+and commit visibility for its own database; `persona-sema` owns only
+the table layout and schema guard over this kernel.
 
 ## Boundaries
 
@@ -79,7 +79,7 @@ Each consumer's typed layer (`<consumer>-sema`) owns:
 - Its open conventions (path discovery, schema registration).
 - Its migration helpers.
 
-Each consumer's runtime store actor owns:
+Each consumer's runtime actor owns:
 
 - The mailbox into the database.
 - Transaction sequencing.
@@ -93,7 +93,7 @@ Sema does **not** own:
 - Per-ecosystem table layouts — those live in
   `<consumer>-sema`.
 - Runtime write ordering or actor mailboxes — those live in the
-  consumer's daemon or dedicated store actor.
+  consumer's daemon actor.
 - The validator pipeline — that's the consumer's daemon
   (criome, persona-router, etc.).
 - Wire format — that's `signal-core` + `signal-<consumer>`.
@@ -147,7 +147,7 @@ land when the kernel grows past ~300 LoC.
 
 **Kernel role.** Sema is the shared database kernel. Consumer
 layers such as `persona-sema` define typed table layouts over it;
-runtime store actors own sequencing and external effects.
+consumer runtime actors own sequencing and external effects.
 
 ## Cross-cutting context
 
