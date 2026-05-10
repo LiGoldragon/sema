@@ -9,15 +9,16 @@
 Sema is the **workspace's typed-database kernel**. redb-backed;
 values are rkyv-archived; tables are typed and version-guarded.
 Each ecosystem layers its own typed tables atop sema in a
-`<consumer>-sema` crate (criome's records today, `persona-sema`
-in flight; future `forge-sema`, etc.).
+state-owning component. A separate typed-table crate is only
+warranted when more than one component genuinely shares the same
+table layer. Do not assume a broad `persona-sema` component exists.
 
 Sema is to **state** what `signal-core` is to **wire**: the
 kernel of typed primitives every consumer's typed layer
 depends on.
 
 Read `ARCHITECTURE.md` for the role/boundaries summary: what
-sema (the kernel) owns, what each `<consumer>-sema` layer
+sema (the kernel) owns, what each consumer-owned typed Sema layer
 owns, and the surface each side has.
 
 ---
@@ -61,10 +62,10 @@ sooner.
 
 ## Hard invariants for an agent working here
 
-- **One redb file per consumer.** Each `<consumer>-sema`
-  layer opens its own file; cross-consumer sharing is not a
-  thing. The kernel doesn't care which file; the consumer
-  decides.
+- **One redb file per consumer.** Each state-bearing component
+  opens its own file through its local typed Sema layer;
+  cross-consumer sharing is not a thing. The kernel doesn't care
+  which file; the consumer decides.
 - **Values are rkyv-archived.** No JSON, no string-tagged
   blobs, no untyped bytes. The kernel's `Table<K, V: Archive>`
   enforces this.
@@ -81,10 +82,9 @@ sooner.
   the `__sema_` prefix (`__sema_headers`, `__sema_meta`,
   `__sema_records`). Consumer table names must not use that
   prefix.
-- **Record types live in `signal-<consumer>`, not in
-  `<consumer>-sema`.** The consumer's typed-storage crate
-  references the wire crate's records as values; it owns
-  the table layout, not the records.
+- **Record types live in Signal contracts or component domain crates,
+  not in sema.** The consumer's typed-storage layer references those
+  records as values; it owns the table layout, not the records.
 - **Sema's slot allocation is a utility, not a policy.**
   Append-only stores can use `Slot(u64)` + the monotone
   counter; non-append-only stores ignore them entirely.
@@ -132,9 +132,10 @@ the pinned Rust toolchain is used.
 Sema does **not** own:
 
 - Per-consumer schema, table layouts, or migration
-  helpers — those live in the consumer's
-  `<consumer>-sema` crate.
-- Record types — those live in `signal-<consumer>`.
+  helpers — those live in the state-owning component's typed Sema
+  layer, or in a dedicated crate only when sharing earns it.
+- Record types — those live in Signal contracts or component domain
+  crates.
 - Validator pipelines — those live in the consumer's
   daemon (criome, persona-router, etc.).
 - Wire format — `signal-core` + `signal-<consumer>`.

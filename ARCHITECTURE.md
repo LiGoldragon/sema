@@ -9,14 +9,14 @@ criome's records, Persona's state, and other ecosystem stores.
 
 Sema is to **state** what `signal-core` is to **wire**: the
 kernel of typed primitives every consumer's typed layer
-depends on. Each ecosystem layers its own typed tables atop
-sema:
+depends on. Each state-bearing component layers its own typed
+tables atop sema:
 
 ```
 signal-core             sema
-  ├─ signal-persona       ├─ persona-sema
-  ├─ signal-forge         ├─ forge-sema  (future)
-  └─ signal-arca          └─ ...
+  ├─ signal-persona       ├─ persona-mind tables
+  ├─ signal-forge         ├─ criome tables
+  └─ signal-arca          └─ future component tables
 ```
 
 The kernel owns:
@@ -41,9 +41,7 @@ The kernel owns:
   counter + `iter()` snapshot) — generally useful for any
   append-only store.
 
-Each consumer's typed layer (a separate crate, named
-`<consumer>-sema` per the signal-family naming convention)
-owns:
+Each consumer's typed layer owns:
 
 - Its `Schema` constant declaring the schema version.
 - Its typed table constants.
@@ -52,14 +50,20 @@ owns:
   default schema registration).
 - Its own migration helpers when needed.
 
+That typed layer normally lives inside the state-owning component
+repo. A dedicated companion crate is only warranted when multiple
+components genuinely share the same table layer. Do not create
+`persona-sema` or another broad shared Persona database component by
+default.
+
 The records' Rust types live in the matching `signal-<consumer>`
-contract crate, not in `<consumer>-sema`. The wire side
-defines the records; the storage side persists them.
+contract crate, not in sema. The wire side defines the records; the
+storage side persists them.
 
 Runtime write ordering is a consumer concern. In Persona, each
 state-bearing component actor owns the mailbox, transaction order,
-and commit visibility for its own database; `persona-sema` owns only
-the table layout and schema guard over this kernel.
+and commit visibility for its own database; its local typed Sema
+layer owns only the table layout and schema guard over this kernel.
 
 ## Boundaries
 
@@ -80,7 +84,7 @@ Sema (kernel) owns:
 - The `Slot(u64)` newtype + monotone slot counter + `iter()`
   snapshot — utility for append-only stores.
 
-Each consumer's typed layer (`<consumer>-sema`) owns:
+Each consumer's typed layer owns:
 
 - Its `Schema` constant (schema version).
 - Its typed table layouts and explicit table-materialization
@@ -99,8 +103,8 @@ Sema does **not** own:
 
 - Record Rust types — those live in the matching
   `signal-<consumer>` contract crate.
-- Per-ecosystem table layouts — those live in
-  `<consumer>-sema`.
+- Per-ecosystem table layouts — those live in the state-owning
+  component's typed Sema layer.
 - Runtime write ordering or actor mailboxes — those live in the
   consumer's daemon actor.
 - The validator pipeline — that's the consumer's daemon
@@ -139,6 +143,22 @@ repo's companion `signal` crate; for Persona that is
 untyped-blob pool, no "miscellaneous record" table, no fallback
 storage path for records that don't fit a known kind.
 
+## Constraints
+
+- Sema opens, creates, versions, and guards redb files; it does not own any
+  Persona runtime state.
+- Sema stores typed rkyv values through typed tables; it does not accept
+  untyped blob tables as a fallback path.
+- Sema's API uses closure-scoped transactions so callers cannot leak redb
+  transaction lifetimes across actor boundaries.
+- Table layout belongs to the component that owns the state.
+- Record Rust types live in Signal contract crates or component domain crates,
+  not in sema.
+- Runtime ordering, actor mailboxes, commit-before-effect policy, and
+  subscriptions belong to the consuming component.
+- A broad shared Persona database layer is not part of the current
+  architecture.
+
 ## Code map
 
 ```
@@ -160,17 +180,17 @@ header/namespacing change.
 
 ## Status
 
-**Kernel role.** Sema is the shared database kernel. Consumer
-layers such as `persona-sema` define typed table layouts over it;
-consumer runtime actors own sequencing and external effects.
+**Kernel role.** Sema is the shared database kernel. State-owning
+components define their typed table layouts over it; consumer runtime
+actors own sequencing and external effects.
 
 ## Cross-cutting context
 
 - Sema-as-kernel design: `~/primary/reports/designer/63-sema-as-workspace-database-library.md`
-- Persona's typed wire records (the values persona-sema
-  persists): `signal-persona/`
-- Persona's store layer over this kernel:
-  `persona-sema/ARCHITECTURE.md`
+- Persona's typed wire records: `signal-persona/` and
+  `signal-persona-*` contract repos.
+- Persona state components' local typed Sema layers, beginning with
+  `persona-mind/`.
 - Persona's channel choreography:
   `~/primary/reports/designer/72-harmonized-implementation-plan.md`
 - Two-stores model (sema + arca): `criome/ARCHITECTURE.md` §5
