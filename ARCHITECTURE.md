@@ -5,20 +5,21 @@ are rkyv-archived; tables are typed and version-guarded. Sema is
 the **kernel** for every sema-flavored store in the workspace:
 criome's records, Persona's state, and other ecosystem stores.
 
-> **Pragmatic vs ideal.** This document describes today's pragmatic
+> **Scope: today, not eventually.** This document describes today's
 > `sema` — a typed database library (Rust, redb, rkyv, typed slots).
 > Rename pending: `sema` → `sema-db` (tracked in bead `primary-ddx`).
 >
-> The eventual **ideal Sema** is much larger: a **universal medium
-> for meaning** with three faces — (i) a **self-hosting computational
+> The **eventual Sema** is much larger: a **universal medium for
+> meaning** with three faces — (i) a **self-hosting computational
 > substrate** (compiler and assembler written in Sema; runtime that
-> hosts every "ideal X" component, including ideal Criome); (ii) a
-> **fully-typed human-language representation** that replaces today's
-> ambiguous text formats; (iii) a **universal interlingua** between
-> human languages. Pragmatic `sema-db` is one realization step toward
-> face (i) — the storage kernel under it. Faces (ii) and (iii) are
-> not yet built. See `~/primary/ESSENCE.md` §"Pragmatic now, ideal
-> later — different things, different names" for the framing.
+> hosts every eventually-self-hosting component, including eventual
+> Criome); (ii) a **fully-typed human-language representation** that
+> replaces today's ambiguous text formats; (iii) a **universal
+> interlingua** between human languages. Today's `sema-db` is one
+> realization step toward face (i) — the storage kernel under it,
+> built rightly for that scope. Faces (ii) and (iii) are not yet
+> built. See `~/primary/ESSENCE.md` §"Today and eventually —
+> different things, different names" for the framing.
 
 ## Role
 
