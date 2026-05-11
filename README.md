@@ -1,12 +1,9 @@
 # sema
 
-The sema database — content-addressed record storage for typed
-program structure. Pseudo-sema while the system bootstraps: records
-are rkyv-archived Rust values from
-signal, stored in
-[redb](https://github.com/cberner/redb), addressed by their slot.
-Content-addressing by BLAKE3 hash lands as kinds beyond Node /
-Edge / Graph come online.
+The sema database kernel: typed, version-guarded table access over
+[redb](https://github.com/cberner/redb) with rkyv-archived Rust values.
+This crate owns the database kernel only. Component-specific tables and
+relations live in the state-bearing component that owns that database.
 
 The typed-kernel surface stores a Sema database header alongside
 the schema version, so each database records the rkyv format

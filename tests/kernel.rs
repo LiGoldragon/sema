@@ -1,5 +1,5 @@
 //! Kernel-mode tests — exercise the Schema / Table&lt;K, V&gt; /
-//! version-guard surface introduced for `<consumer>-sema` crates.
+//! version-guard surface consumed by component-owned Sema layers.
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};

@@ -1,9 +1,9 @@
 //! sema — the workspace's typed-database kernel.
 //!
 //! redb-backed; values are rkyv-archived; tables are typed
-//! and version-guarded. This crate is the kernel; per-ecosystem
-//! typed layers live in `<consumer>-sema` crates (criome's
-//! records today, `persona-sema` in flight).
+//! and version-guarded. This crate is the kernel; component-owned
+//! typed table layers live inside the state-bearing consumer that
+//! owns each database.
 //!
 //! See `ARCHITECTURE.md` for the role/boundaries; see
 //! `~/primary/reports/designer/63-sema-as-workspace-database-library.md`
@@ -15,13 +15,14 @@
 //!
 //! - **Legacy slot store** — `Sema::open(path)`, `store(&[u8])
 //!   → Slot`, `get(Slot) → Option<Vec<u8>>`, `iter() →
-//!   Vec<(Slot, Vec<u8>)>`. Append-only utility used by
-//!   criome's record store today.
+//!   Vec<(Slot, Vec<u8>)>`. Compatibility utility used by
+//!   older criome record-store code; do not use for new typed
+//!   component state.
 //! - **Typed kernel** — `Sema::open_with_schema(path, &Schema)`,
 //!   `Table<K, V: Archive>` typed wrappers, closure-scoped
 //!   `read(|txn| ...)` / `write(|txn| ...)` helpers,
-//!   version-skew guard at open. The shape every
-//!   `<consumer>-sema` crate consumes.
+//!   version-skew guard at open. The shape every component-owned
+//!   Sema layer consumes.
 //!
 //! Both modes coexist on the same `Sema` handle; choose at
 //! open time.
@@ -532,8 +533,8 @@ impl Sema {
     /// mode** — initialises the slot counter, creates the
     /// records + meta tables, no schema check.
     ///
-    /// This is the M0 surface criome uses today. New
-    /// `<consumer>-sema` crates should use [`Self::open_with_schema`]
+    /// This is the compatibility surface older criome code uses today. New
+    /// component-owned table layers should use [`Self::open_with_schema`]
     /// instead.
     pub fn open(path: &Path) -> Result<Self> {
         Self::open_inner(path, OpenMode::LegacySlotStore)
