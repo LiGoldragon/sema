@@ -9,6 +9,18 @@ Sema is to state what `signal-core` is to wire: the small kernel of
 primitives that higher layers build on. Full database-operation
 execution lives in `sema-engine`, not in this crate.
 
+> **Scope.** Today's `sema` is the Rust-on-redb storage kernel.
+> The eventually-self-hosting `Sema` substrate (the universal
+> medium for meaning, Sema-on-Sema) is a different artifact at a
+> different layer of the stack: it is what makes computation
+> itself content-addressable. Today's `sema` is a realization
+> step. The eventual versioning model — schema as content-
+> addressed Sema source, components carrying multiple versions
+> in runtime, translation as reducer work — is named in the
+> Versioning section below as **future work, not first-prototype
+> work**. See `~/primary/ESSENCE.md` §"Today and eventually" and
+> §"Versioning on the eventual stack".
+
 ## Role
 
 The kernel owns:
@@ -170,3 +182,37 @@ discoveries that require kernel changes (per ESSENCE §"Backward
 compatibility is not a constraint" — `sema` may break to make the
 engine substrate beautiful). Most active development lives in
 `sema-engine`.
+
+## Versioning — today and eventually
+
+Today, schema versioning is **manual**: `Sema::open_with_schema`
+takes an explicit `SchemaVersion` constant; the file records that
+version on first open and hard-fails on subsequent mismatches.
+Consumers bump the constant when their typed tables change shape,
+and migration is a coordinated rebuild (delete the old database,
+recompile the consumer against the new schema, accept the data
+loss or run a one-off migrator). The format-identity guard is
+separate and protects against rkyv layout drift across builds.
+
+Eventually, when the workspace self-hosts on Sema-on-Sema (per
+`~/primary/ESSENCE.md` §"Today and eventually"), versioning becomes
+**content-addressed**:
+
+- A schema is identified by the hash of its Sema source. Equal hash
+  ⇒ equal schema by construction; no separate `SchemaVersion`
+  constant is needed.
+- A component's runtime can hold **multiple schema versions
+  concurrently**. Records archived under v3's hash decode through
+  v3's typed shape; records archived under v4's hash decode through
+  v4's. The catalog row carries the schema-hash, not a manually-
+  assigned version number.
+- Migration becomes a **reducer**: a typed Sema function from
+  v3-records to v4-records. The reducer runs over the v3 archive
+  to produce a v4 archive; both can coexist in the same store
+  under different schema-hash addresses until the v3 archive is
+  retired.
+
+This is **future work**, not first-prototype work. The current
+manual-`SchemaVersion` mechanic is the realization step for it.
+The eventual model retires this section's first paragraph, not
+the kernel itself.
