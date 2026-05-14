@@ -139,7 +139,7 @@ fn open_refuses_invalid_database_header_bytes() {
 fn internal_tables_use_sema_namespace() {
     let path = temp_path();
     {
-        let _sema = Sema::open(&path).unwrap();
+        let _sema = Sema::open_with_schema(&path, &SCHEMA_V1).unwrap();
     }
     let database = redb::Database::create(&path).unwrap();
     let transaction = database.begin_read().unwrap();
@@ -150,7 +150,7 @@ fn internal_tables_use_sema_namespace() {
         .collect::<Vec<_>>();
     assert!(table_names.contains(&"__sema_headers".to_string()));
     assert!(table_names.contains(&"__sema_meta".to_string()));
-    assert!(table_names.contains(&"__sema_records".to_string()));
+    assert!(!table_names.contains(&"__sema_records".to_string()));
     assert!(!table_names.contains(&"meta".to_string()));
     assert!(!table_names.contains(&"records".to_string()));
     let _ = std::fs::remove_file(&path);
@@ -177,13 +177,15 @@ fn open_with_mismatched_schema_version_hard_fails() {
 #[test]
 fn open_with_schema_refuses_legacy_file_lacking_schema_version() {
     // The version-skew guard MUST refuse to retro-stamp an
-    // existing file that was created in legacy mode (no
+    // existing file that lacks the schema-version stamp (no
     // schema_version stored). Silent acceptance was the bug
     // designer/66 §1.5 (Issue A) named.
     let path = temp_path();
     {
-        let legacy = Sema::open(&path).unwrap();
-        let _ = legacy.store(b"legacy bytes").unwrap();
+        let database = redb::Database::create(&path).unwrap();
+        let transaction = database.begin_write().unwrap();
+        transaction.open_table(DATABASE_HEADERS).unwrap();
+        transaction.commit().unwrap();
     }
     let result = Sema::open_with_schema(&path, &SCHEMA_V1);
     match result {
@@ -384,9 +386,12 @@ fn write_closure_rolls_back_on_error() {
     };
     let result = sema.write(|txn| -> sema::Result<()> {
         TOYS.insert(txn, "k", &toy)?;
-        Err(Error::MissingSlotCounter)
+        Err(Error::SchemaVersionMismatch {
+            expected: SchemaVersion::new(1),
+            found: SchemaVersion::new(2),
+        })
     });
-    assert!(matches!(result, Err(Error::MissingSlotCounter)));
+    assert!(matches!(result, Err(Error::SchemaVersionMismatch { .. })));
     // The insert should have been rolled back when the txn was dropped without commit.
     let after = sema.read(|txn| TOYS.get(txn, "k")).unwrap();
     assert!(after.is_none(), "rolled-back insert should not persist");
@@ -394,21 +399,19 @@ fn write_closure_rolls_back_on_error() {
 }
 
 #[test]
-fn legacy_slot_store_coexists_with_typed_tables() {
+fn schema_open_does_not_create_legacy_record_table() {
     let path = temp_path();
-    let sema = Sema::open_with_schema(&path, &SCHEMA_V1).unwrap();
-    // typed table use
-    let toy = ToyRecord {
-        name: "mix".to_string(),
-        value: 99,
-    };
-    sema.write(|txn| TOYS.insert(txn, "k", &toy)).unwrap();
-    // legacy slot use
-    let slot = sema.store(b"raw bytes").unwrap();
-    // both readable
-    let typed = sema.read(|txn| TOYS.get(txn, "k")).unwrap().unwrap();
-    assert_eq!(typed, toy);
-    assert_eq!(sema.get(slot).unwrap(), Some(b"raw bytes".to_vec()));
+    {
+        let _sema = Sema::open_with_schema(&path, &SCHEMA_V1).unwrap();
+    }
+    let database = redb::Database::create(&path).unwrap();
+    let transaction = database.begin_read().unwrap();
+    let table_names = transaction
+        .list_tables()
+        .unwrap()
+        .map(|table| table.name().to_string())
+        .collect::<Vec<_>>();
+    assert!(!table_names.contains(&"__sema_records".to_string()));
     let _ = std::fs::remove_file(&path);
 }
 

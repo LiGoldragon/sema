@@ -1,214 +1,168 @@
 # ARCHITECTURE — sema
 
-The workspace's typed-database substrate. redb-backed; values
-are rkyv-archived; tables are typed and version-guarded. Sema is
-the **kernel** for every sema-flavored store in the workspace:
-criome's records, Persona's state, and other ecosystem stores.
+Sema is the workspace's typed storage kernel. It is a Rust
+library over redb and rkyv. It opens a database file with an
+explicit schema, guards the rkyv database format, and provides
+typed table operations inside closure-scoped transactions.
 
-> **Scope: today, not eventually.** This document describes today's
-> `sema` — a typed database library (Rust, redb, rkyv, typed slots).
-> Rename pending: `sema` → `sema-db` (tracked in bead `primary-ddx`).
->
-> The **eventual Sema** is much larger: a **universal medium for
-> meaning** with three faces — (i) a **self-hosting computational
-> substrate** (compiler and assembler written in Sema; runtime that
-> hosts every eventually-self-hosting component, including eventual
-> Criome); (ii) a **fully-typed human-language representation** that
-> replaces today's ambiguous text formats; (iii) a **universal
-> interlingua** between human languages. Today's `sema-db` is one
-> realization step toward face (i) — the storage kernel under it,
-> built rightly for that scope. Faces (ii) and (iii) are not yet
-> built. See `~/primary/ESSENCE.md` §"Today and eventually —
-> different things, different names" for the framing.
+Sema is to state what `signal-core` is to wire: the small kernel of
+primitives that higher layers build on. Full database-operation
+execution lives in `sema-engine`, not in this crate.
 
 ## Role
 
-Sema is to **state** what `signal-core` is to **wire**: the
-kernel of typed primitives every consumer's typed layer
-depends on. Each state-bearing component layers its own typed
-tables atop sema:
-
-```
-signal-core             sema
-  ├─ signal-persona       ├─ persona-mind tables
-  ├─ signal-forge         ├─ criome tables
-  └─ signal-arca          └─ future component tables
-```
-
 The kernel owns:
 
-- The redb file lifecycle (open-or-create, ensure tables,
-  parent-dir mkdir).
-- The typed `Table<K, V: Archive>` wrapper that hides rkyv
-  encode/decode at the table boundary, can materialize
-  typed tables explicitly, and snapshots typed rows with
-  owned keys.
-- The closure-scoped txn helpers (`store.read(|txn| ...)`,
-  `store.write(|txn| ...)`).
-- The standard `Error` enum (5 redb-error variants + rkyv +
-  io + schema-version-mismatch + database-format-mismatch).
-- The version-skew guard (per `~/primary/skills/rust-discipline.md`
-  §"Schema discipline" — known-slot record carrying the
-  schema version, hard-fail on mismatch).
-- The database header guard naming Sema's rkyv format identity:
-  little-endian, pointer-width-32, unaligned archives, and
-  bytecheck validation.
-- The slot-allocation utility (`Slot(u64)` + monotone
-  counter + `iter()` snapshot) — generally useful for any
-  append-only store.
+- The redb file lifecycle: create parent directories, open or create
+  the file, create sema-owned internal tables.
+- The database header guard: the file records Sema's rkyv format
+  identity and refuses incompatible builds.
+- The schema-version guard: `Sema::open_with_schema(path, schema)`
+  writes the schema on first open and hard-fails on mismatch.
+- Closure-scoped transactions: `read(|transaction| ...)` and
+  `write(|transaction| ...)`.
+- Typed tables: `Table<K, V>` hides rkyv encode/decode at the table
+  boundary and returns owned rows from scans.
+- The crate `Error` enum for kernel failures.
 
-Each consumer's typed layer owns:
+Consumers own:
 
-- Its `Schema` constant declaring the schema version.
-- Its typed table constants.
-- Its typed table layouts (one table per record kind).
-- Its convenience open methods (canonical path discovery,
-  default schema registration).
-- Its own migration helpers when needed.
+- Record Rust types, usually in Signal contract crates or component
+  domain crates.
+- Table layouts and schema constants.
+- Runtime ordering, actors, authorization, validation, subscriptions,
+  and commit-before-effect policy.
+- Database-operation execution through `sema-engine`.
 
-That typed layer normally lives inside the state-owning component
-repo. A dedicated companion crate is only warranted when multiple
-components genuinely share the same table layer. Do not create
-`persona-sema` or another broad shared Persona database component by
-default.
+## Boundary
 
-The records' Rust types live in the matching `signal-<consumer>`
-contract crate, not in sema. The wire side defines the records; the
-storage side persists them.
+```text
+component daemon
+  owns actors, policy, validation, subscriptions, sockets
+  |
+  v
+sema-engine
+  owns Signal verb execution, query/mutation plans, catalog,
+  operation log, snapshots, subscription delivery
+  |
+  v
+sema
+  owns redb/rkyv typed table storage, schema guard,
+  database-format guard, transaction helpers
+  |
+  v
+component.redb
+```
 
-Runtime write ordering is a consumer concern. In Persona, each
-state-bearing component actor owns the mailbox, transaction order,
-and commit visibility for its own database; its local typed Sema
-layer owns only the table layout and schema guard over this kernel.
+The dependency direction is one-way. `sema-engine` may depend on
+`sema`. `sema` must not depend on `sema-engine`, Signal contracts,
+Kameo, tokio, NOTA, Nexus, Persona, or Criome.
 
-## Boundaries
+## Non-Goals
 
-Sema (kernel) owns:
+Sema does not own:
 
-- The redb file lifecycle (open-or-create, parent mkdir,
-  ensure_tables).
-- Closure-scoped txn helpers.
-- Typed `Table<K, V: Archive>` wrapper; rkyv encode/decode
-  at the table boundary; `ensure`, `get`, `insert`,
-  `remove`, `iter`, and `range` table affordances.
-- The standard `Error` enum (typed `#[from]` for redb's 5
-  error types + rkyv + io + schema-version mismatch).
-- Version-skew guard — known-slot record carrying schema
-  version, checked at open, hard-fail on mismatch.
-- Database header guard — rkyv format identity stored in
-  `__sema_headers`, checked at open, hard-fail on mismatch.
-- The `Slot(u64)` newtype + monotone slot counter + `iter()`
-  snapshot — utility for append-only stores.
+- Signal verbs or request routing.
+- Query planning, mutation planning, validation, operation logs,
+  snapshots, or subscriptions.
+- Component actors or mailboxes.
+- Runtime configuration for any component.
+- Raw untyped record storage.
+- Peer inspection or daemon sockets.
 
-Each consumer's typed layer owns:
-
-- Its `Schema` constant (schema version).
-- Its typed table layouts and explicit table-materialization
-  path.
-- Its open conventions (path discovery, schema registration).
-- Its migration helpers.
-
-Each consumer's runtime actor owns:
-
-- The mailbox into the database.
-- Transaction sequencing.
-- Commit-before-effect ordering.
-- Subscription events emitted after durable state changes.
-
-Sema does **not** own:
-
-- Record Rust types — those live in the matching
-  `signal-<consumer>` contract crate.
-- Per-ecosystem table layouts — those live in the state-owning
-  component's typed Sema layer.
-- Runtime write ordering or actor mailboxes — those live in the
-  consumer's daemon actor.
-- The validator pipeline — that's the consumer's daemon
-  (criome, persona-router, etc.).
-- Wire format — that's `signal-core` + `signal-<consumer>`.
-- Artifact bytes — those live in `arca`; sema records
-  reference by hash.
-
-Criome owns its runtime-specific configuration:
-
-- `reader_count` / `set_reader_count` — criome-specific
-  read-pool config; lives in criome.
-
-## Identity model
-
-Records use **slot-refs** (`Slot(u64)`), not content hashes,
-for cross-record references. Sema's index maps each slot to
-its current content hash plus a bitemporal display-name
-binding. Content edits update the slot's current-hash without
-rippling rehashes through dependents. Renames update the
-slot's display-name without rewriting any records anywhere.
-
-Display-name is global — one name per slot, globally
-consistent. prism projections pick it up everywhere.
-
-Slots are **global**, not graph-scoped.
-
-## Stored by precise kind
-
-Sema is the storage end of the project's perfect-specificity
-invariant.
-Every record stored here belongs to a specific kind defined
-in a signal-family closed Rust type — for criome that is this
-repo's companion `signal` crate; for Persona that is
-`signal-persona` plus the relevant channel contract. There is no
-untyped-blob pool, no "miscellaneous record" table, no fallback
-storage path for records that don't fit a known kind.
+The retired raw-byte append path is intentionally absent. If a future
+engine needs append-only identity or sequence allocation, that lands
+as a typed `sema-engine` primitive with its own records and witnesses,
+not as a raw storage surface in `sema`.
 
 ## Constraints
 
-- Sema opens, creates, versions, and guards redb files; it does not own any
-  Persona runtime state.
-- Sema stores typed rkyv values through typed tables; it does not accept
-  untyped blob tables as a fallback path.
-- Sema's API uses closure-scoped transactions so callers cannot leak redb
-  transaction lifetimes across actor boundaries.
+- Sema opens durable state only through
+  `Sema::open_with_schema(path, schema)`.
+- Sema stores typed rkyv values through typed tables.
+- Sema has no schema-less public open path.
+- Sema has no raw byte store API.
+- Sema has no Criome read-pool configuration API.
+- Sema internal table names use the `__sema_` prefix.
+- Sema-owned internal tables are limited to kernel metadata and
+  database headers.
+- Component table names must not use the `__sema_` prefix.
 - Table layout belongs to the component that owns the state.
-- Record Rust types live in Signal contract crates or component domain crates,
-  not in sema.
+- Record Rust types live in Signal contract crates or component
+  domain crates, not in sema.
 - Runtime ordering, actor mailboxes, commit-before-effect policy, and
-  subscriptions belong to the consuming component.
-- A broad shared Persona database layer is not part of the current
-  architecture.
+  subscriptions belong to the consuming component or to
+  `sema-engine`.
 
-## Code map
+## Public Surface
 
+```rust
+pub struct Sema;
+
+impl Sema {
+    pub fn open_with_schema(path: &Path, schema: &Schema) -> Result<Self>;
+    pub fn read<R>(&self, body: impl FnOnce(&ReadTransaction) -> Result<R>) -> Result<R>;
+    pub fn write<R>(&self, body: impl FnOnce(&WriteTransaction) -> Result<R>) -> Result<R>;
+    pub fn path(&self) -> &Path;
+}
+
+pub struct Table<K, V> { ... }
+
+impl<K, V> Table<K, V> {
+    pub const fn new(name: &'static str) -> Self;
+    pub fn ensure(&self, transaction: &WriteTransaction) -> Result<()>;
+    pub fn get(&self, transaction: &ReadTransaction, key: K) -> Result<Option<V>>;
+    pub fn insert(&self, transaction: &WriteTransaction, key: K, value: &V) -> Result<()>;
+    pub fn remove(&self, transaction: &WriteTransaction, key: K) -> Result<bool>;
+    pub fn iter(&self, transaction: &ReadTransaction) -> Result<Vec<(K::Owned, V)>>;
+    pub fn range<R>(&self, transaction: &ReadTransaction, range: R) -> Result<Vec<(K::Owned, V)>>;
+}
 ```
+
+## Code Map
+
+```text
 src/
-└── lib.rs    — Sema struct (open + read/write txn helpers) +
-                Table<K, V: Archive> typed wrapper +
-                OwnedTableKey for iterator snapshots +
-                DatabaseHeader rkyv-format guard +
-                Slot newtype + slot counter + iter +
-                Error + version-skew guard
+└── lib.rs    — Sema handle, schema/database header guards,
+                closure-scoped transactions, Table<K, V>,
+                OwnedTableKey, Error
 ```
 
-Internal Sema tables are namespaced with `__sema_`:
-`__sema_headers`, `__sema_meta`, and `__sema_records`.
+Internal Sema tables:
 
-The remaining hygiene split (`store.rs`, `table.rs`,
-`error.rs`, `version.rs`) is tracked separately from the
-header/namespacing change.
+- `__sema_headers`
+- `__sema_meta`
+
+## Tests
+
+Named Nix surfaces:
+
+```sh
+nix run .#test
+nix run .#test-kernel-surface
+nix run .#test-no-legacy-surface
+nix run .#test-doc
+nix flake check
+```
+
+Load-bearing witnesses:
+
+- `sema_does_not_export_slot`
+- `sema_does_not_export_legacy_slot_store`
+- `sema_does_not_export_reader_count`
+- schema mismatch hard-fails at open
+- database format mismatch hard-fails at open
+- typed table scans return owned keys and values
+- write transactions roll back on typed errors
 
 ## Status
 
-**Kernel role.** Sema is the shared database kernel. State-owning
-components define their typed table layouts over it; consumer runtime
-actors own sequencing and external effects.
+Package A of the sema / sema-engine split is in progress:
+clean this crate into the storage kernel before creating the
+library-only `sema-engine` repository.
 
-## Cross-cutting context
+Canonical handoff:
 
-- Sema-as-kernel design: `~/primary/reports/designer/63-sema-as-workspace-database-library.md`
-- Persona's typed wire records: `signal-persona/` and
-  `signal-persona-*` contract repos.
-- Persona state components' local typed Sema layers, beginning with
-  `persona-mind/`.
-- Persona's channel choreography:
-  `~/primary/reports/designer/72-harmonized-implementation-plan.md`
-- Two-stores model (sema + arca): `criome/ARCHITECTURE.md` §5
-- Per-kind change-log discipline (criome's specific layer):
-  `criome/ARCHITECTURE.md` §5
+- `~/primary/reports/operator/115-sema-engine-split-implementation-investigation.md`
+- `~/primary/reports/designer/158-sema-kernel-and-sema-engine-two-interfaces.md`
+- `~/primary/reports/designer/159-reply-to-operator-115-sema-engine-split.md`

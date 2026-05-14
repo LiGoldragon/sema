@@ -4,12 +4,22 @@ You **MUST** read AGENTS.md at `github:ligoldragon/lore` — the workspace contr
 
 ## Repo role
 
-Criome's **records database** — content-addressed records keyed by blake3 of their canonical rkyv encoding, redb-backed. Owned by criome.
+The workspace's typed storage kernel. Sema opens redb files with an
+explicit schema, guards the rkyv database format, and provides typed
+`Table<K, V>` access over rkyv-archived values.
+
+Sema is not Criome's records engine and does not own Persona runtime
+state. Full database-operation execution lives in `sema-engine`.
 
 ---
 
 ## Carve-outs worth knowing
 
-- **`Slot(u64)` has a private field.** Construct via `Slot::from(value)`; extract via `let value: u64 = slot.into()`. Same pattern for `Revision`.
-- **`reader_count()` / `set_reader_count()`** persist the read-pool size in sema's redb meta table. Default `DEFAULT_READER_COUNT = 4` if unset. criome reads this at daemon startup to size its `Reader` actor pool.
-- **rkyv feature-set** must match the project pin per lore/rust/rkyv.md.
+- **No schema-less open.** Durable state opens through
+  `Sema::open_with_schema(path, schema)`.
+- **No raw slot store.** The retired `Slot` / raw bytes / monotone
+  counter surface must not reappear in this crate.
+- **No Criome read-pool config.** Criome runtime tuning belongs to
+  Criome; `reader_count` is not a sema kernel concept.
+- **rkyv feature-set** must match the project pin per
+  lore/rust/rkyv.md.

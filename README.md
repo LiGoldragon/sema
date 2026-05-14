@@ -22,7 +22,7 @@ them through Nix so the pinned Rust toolchain is used:
 ```sh
 nix run .#test
 nix run .#test-kernel-surface
-nix run .#test-legacy-slot-store
+nix run .#test-no-legacy-surface
 nix run .#test-doc
 ```
 

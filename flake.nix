@@ -38,7 +38,7 @@
         testScript = scriptApplication "test" ./scripts/test;
         testDocScript = scriptApplication "test-doc" ./scripts/test-doc;
         testKernelSurfaceScript = scriptApplication "test-kernel-surface" ./scripts/test-kernel-surface;
-        testLegacySlotStoreScript = scriptApplication "test-legacy-slot-store" ./scripts/test-legacy-slot-store;
+        testNoLegacySurfaceScript = scriptApplication "test-no-legacy-surface" ./scripts/test-no-legacy-surface;
       in
       {
         packages = {
@@ -49,7 +49,7 @@
           test = testScript;
           test-doc = testDocScript;
           test-kernel-surface = testKernelSurfaceScript;
-          test-legacy-slot-store = testLegacySlotStoreScript;
+          test-no-legacy-surface = testNoLegacySurfaceScript;
         };
 
         apps = {
@@ -77,10 +77,10 @@
             meta.description = "Run sema's typed-kernel integration tests";
           };
 
-          test-legacy-slot-store = {
+          test-no-legacy-surface = {
             type = "app";
-            program = "${testLegacySlotStoreScript}/bin/sema-test-legacy-slot-store";
-            meta.description = "Run sema's legacy slot-store integration tests";
+            program = "${testNoLegacySurfaceScript}/bin/sema-test-no-legacy-surface";
+            meta.description = "Run sema's retired-surface absence witnesses";
           };
         };
 
@@ -93,8 +93,8 @@
 
           # ─── Default test surface ─────────────────────────────
           # `cargo test` — runs every test target end to end.
-          # Includes the legacy slot-store tests and the new
-          # kernel-surface tests in one pass.
+          # Includes the kernel-surface tests and retired-surface
+          # absence witnesses in one pass.
           test = craneLib.cargoTest (commonArgs // {
             inherit cargoArtifacts;
           });
@@ -102,9 +102,9 @@
           # ─── Per-file integration test runs ──────────────────
           # Each integration test file gets its own check so a
           # failure surfaces named, not buried.
-          test-legacy-slot-store = craneLib.cargoTest (commonArgs // {
+          test-no-legacy-surface = craneLib.cargoTest (commonArgs // {
             inherit cargoArtifacts;
-            cargoTestExtraArgs = "--test sema";
+            cargoTestExtraArgs = "--test no_legacy_surface";
           });
 
           test-kernel-surface = craneLib.cargoTest (commonArgs // {

@@ -25,8 +25,8 @@ owns, and the surface each side has.
 
 ## Intent
 
-**Criome and sema are meant to be eventually impossible to
-improve.**
+**Sema is meant to become impossible to improve as a storage
+kernel.**
 
 > *"I am much more interested in a good design than in producing
 > it quickly — criome and sema are meant to be eventually
@@ -46,13 +46,10 @@ For sema specifically, this commits the project to:
   opaque blobs the engine treats as untyped. If a value flows
   through sema, it has a closed Rust type with a derived rkyv
   encoding.
-- **Content-addressing is non-negotiable.** Identity is the
-  blake3 of canonical rkyv encoding. The hash is what the rest
-  of the engine references; slots are the mutable handle on top
-  of immutable identity.
-- **Bitemporal correctness.** Slot reuse is safe for historical
-  queries because the per-kind change-log carries the ground
-  truth. The current-state tables are derivable.
+- **State is typed at the table boundary.** The kernel stores
+  closed Rust values through typed tables. Identity policy,
+  content addressing, history, and bitemporal meaning belong to
+  `sema-engine` or the consuming domain, not to this kernel.
 
 When a design choice trades clarity for speed of writing, intent
 wins. The right format now is worth more than a wrong format
@@ -79,15 +76,14 @@ sooner.
   refuses to open a database whose stored header mismatches this
   build.
 - **Internal tables are namespaced.** Sema-owned redb tables use
-  the `__sema_` prefix (`__sema_headers`, `__sema_meta`,
-  `__sema_records`). Consumer table names must not use that
-  prefix.
+  the `__sema_` prefix (`__sema_headers`, `__sema_meta`).
+  Consumer table names must not use that prefix.
 - **Record types live in Signal contracts or component domain crates,
   not in sema.** The consumer's typed-storage layer references those
   records as values; it owns the table layout, not the records.
-- **Sema's slot allocation is a utility, not a policy.**
-  Append-only stores can use `Slot(u64)` + the monotone
-  counter; non-append-only stores ignore them entirely.
+- **No raw slot allocation surface.** Append-only identity and
+  sequence allocation are engine/domain concepts. They do not live
+  in this storage kernel.
 - **Typed table scans return owned keys.** redb yields borrowed
   keys for borrowed key types (`&str`, `&[u8]`). Sema's
   `Table::iter` and `Table::range` eagerly collect rows and
@@ -111,8 +107,10 @@ Sema (the kernel) owns:
 - The standard `Error` enum (5 redb-error variants +
   rkyv + io + schema-version mismatch).
 - The version-skew guard and database-format guard.
-- The `Slot(u64)` newtype + monotone slot counter +
-  `iter()` snapshot — utility for append-only stores.
+Sema (the kernel) does not own raw slot allocation, read-pool
+configuration, query planning, subscriptions, validation, or
+operation logs. Those live in `sema-engine` or the consuming
+component.
 
 ## Test command surface
 
@@ -121,7 +119,7 @@ Use the repo-local scripts through Nix:
 ```sh
 nix run .#test
 nix run .#test-kernel-surface
-nix run .#test-legacy-slot-store
+nix run .#test-no-legacy-surface
 nix run .#test-doc
 ```
 
@@ -147,7 +145,8 @@ Sema does **not** own:
 
 - `ARCHITECTURE.md` — sema's role and boundaries.
 - `AGENTS.md` — repo-specific carve-outs.
-- criome's `skills.md` — the engine that owns sema.
+- `sema-engine` — the engine that executes Signal database verbs
+  over this storage kernel.
 - signal's `skills.md` — the rkyv types of records.
 - arca's `skills.md` — the content-addressed artifact store.
 - prism's `skills.md` — sema → Rust projector.
