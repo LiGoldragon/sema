@@ -170,10 +170,3 @@ discoveries that require kernel changes (per ESSENCE §"Backward
 compatibility is not a constraint" — `sema` may break to make the
 engine substrate beautiful). Most active development lives in
 `sema-engine`.
-
-Canonical handoff:
-
-- `~/primary/reports/operator/115-sema-engine-split-implementation-investigation.md`
-- `~/primary/reports/designer/158-sema-kernel-and-sema-engine-two-interfaces.md`
-- `~/primary/reports/designer/159-reply-to-operator-115-sema-engine-split.md`
-- `~/primary/reports/designer-assistant/49-sema-engine-state-and-introspect-readiness.md`
