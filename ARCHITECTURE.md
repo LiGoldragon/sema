@@ -157,12 +157,23 @@ Load-bearing witnesses:
 
 ## Status
 
-Package A of the sema / sema-engine split is in progress:
-clean this crate into the storage kernel before creating the
-library-only `sema-engine` repository.
+Package A of the sema / sema-engine split has **landed**: this crate
+is the cleaned storage kernel (no `Slot`, no legacy raw-byte store,
+no `reader_count`, no schema-less open). The structural witnesses
+for those deletions exist. `sema-engine` has been created as a
+sibling library-only repository and is in active development; the
+first consumer migration (persona-mind) is in flight on operator
+track `[primary-5ir2]`.
+
+Ongoing work for this crate is bounded: respond to engine-side
+discoveries that require kernel changes (per ESSENCE §"Backward
+compatibility is not a constraint" — `sema` may break to make the
+engine substrate beautiful). Most active development lives in
+`sema-engine`.
 
 Canonical handoff:
 
 - `~/primary/reports/operator/115-sema-engine-split-implementation-investigation.md`
 - `~/primary/reports/designer/158-sema-kernel-and-sema-engine-two-interfaces.md`
 - `~/primary/reports/designer/159-reply-to-operator-115-sema-engine-split.md`
+- `~/primary/reports/designer-assistant/49-sema-engine-state-and-introspect-readiness.md`
