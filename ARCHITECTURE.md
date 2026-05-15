@@ -174,8 +174,7 @@ is the cleaned storage kernel (no `Slot`, no legacy raw-byte store,
 no `reader_count`, no schema-less open). The structural witnesses
 for those deletions exist. `sema-engine` has been created as a
 sibling library-only repository and is in active development; the
-first consumer migration (persona-mind) is in flight on operator
-track `[primary-5ir2]`.
+first consumer migration (persona-mind) is in flight.
 
 Ongoing work for this crate is bounded: respond to engine-side
 discoveries that require kernel changes (per ESSENCE §"Backward
