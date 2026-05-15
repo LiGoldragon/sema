@@ -174,8 +174,7 @@ is the cleaned storage kernel (no `Slot`, no legacy raw-byte store,
 no `reader_count`, no schema-less open). The structural witnesses
 for those deletions exist. `sema-engine` has been created as a
 sibling library-only repository and is in active development; the
-first consumer migration (persona-mind) is in flight on operator
-track `[primary-5ir2]`.
+first consumer migration (persona-mind) is in flight.
 
 Ongoing work for this crate is bounded: respond to engine-side
 discoveries that require kernel changes (per ESSENCE §"Backward
@@ -216,3 +215,16 @@ This is **future work**, not first-prototype work. The current
 manual-`SchemaVersion` mechanic is the realization step for it.
 The eventual model retires this section's first paragraph, not
 the kernel itself.
+
+## Macro-pattern integration
+
+**Status:** integrated into the brilliant macro library pattern per `reports/designer/326-v13-spirit-complete-schema-vision.md §3` (schemas as macro-pattern instance).
+
+**Role:** this crate is the storage kernel — the typed-value substrate `sema-engine` builds upon. Component schemas never reference `sema` directly; they reference `sema-engine`, which composes this kernel under the hood.
+
+**Integration target:** storage kernel; consumed by `sema-engine`. Under the schema-engine upgrade, this crate's surface does not change. The macro-emitted storage descriptors call into `sema-engine`'s typed-table API, which in turn calls into this kernel's typed-value primitives. The reducer-based migration model described above in the "future work" section becomes more natural under the schema-engine upgrade: the schema language gives `.schema` files first-class schema-hash identity, and reducers between two schema-hash versions become regular schema-declared transformations the macro can emit code for.
+
+**References:**
+- `reports/designer/326-v13-spirit-complete-schema-vision.md` — schema language + macro pattern
+- `reports/designer/324-migration-mvp-spirit-handover-re-specification.md` — migration MVP
+- `reports/operator/174-schema-import-header-design-critique-2026-05-24.md` — lowering + AssembledSchema form
