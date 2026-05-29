@@ -131,6 +131,43 @@ impl<K, V> Table<K, V> {
 }
 ```
 
+## Deletion durability — copy-on-write page reuse
+
+redb is a copy-on-write B-tree. `Table::remove` — and any `write`
+transaction that drops or overwrites a key — does not erase bytes in
+place. It commits a new tree and marks the old pages free. A removed
+record's rkyv-archived bytes linger in those freed pages **only until a
+later write transaction reuses them**; once subsequent commits reclaim
+the pages, the bytes are overwritten and the record is gone from the
+live file.
+
+So at the kernel layer, **removal is irreversible**. There is no
+undelete, no tombstone, and no history beyond redb's single
+last-committed / in-progress page pair. A consumer that might need a
+removed record back must capture it *before* calling `remove` — the
+kernel keeps nothing.
+
+This was confirmed empirically against a sema consumer (the
+persona-spirit intent store). Records removed one morning had their
+freed pages fully reclaimed within hours by ~74 later record writes: a
+forensic `strings` / byte scan of a read-only copy of the live database
+found no trace of the removed records' distinctive text, while every
+live record's text was still present. A type-aware (rkyv) scan reads
+the same overwritten pages and cannot do better — page reuse has
+already destroyed the content.
+
+Consequences for the layers above:
+
+- `sema-engine`'s `Retract` verb inherits this: a retracted record is
+  unrecoverable from the file once later commits reclaim its pages.
+- Components whose records carry durable meaning (intent logs, audit
+  trails) must treat removal as destructive and capture-before-remove,
+  never relying on forensic recovery.
+- Recoverable deletion, where wanted, is a deliberate higher-layer
+  feature — a typed `sema-engine` tombstone/archive record, or a
+  transaction-coherent copy via redb's backup API or a filesystem
+  copy-on-write snapshot — never an implicit property of the store.
+
 ## Code Map
 
 ```text
