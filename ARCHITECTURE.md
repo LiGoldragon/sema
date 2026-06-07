@@ -33,6 +33,8 @@ The kernel owns:
   writes the schema on first open and hard-fails on mismatch.
 - Closure-scoped transactions: `read(|transaction| ...)` and
   `write(|transaction| ...)`.
+- Public transaction type aliases: consumers name `sema::ReadTransaction`
+  / `sema::WriteTransaction`, not `redb` transaction types directly.
 - Typed tables: `Table<K, V>` hides rkyv encode/decode at the table
   boundary and returns owned rows from scans.
 - The crate `Error` enum for kernel failures.

@@ -22,9 +22,8 @@ use std::marker::PhantomData;
 use std::ops::RangeBounds;
 use std::path::{Path, PathBuf};
 
-use redb::{
-    Database, ReadTransaction, ReadableDatabase, ReadableTable, TableDefinition, WriteTransaction,
-};
+use redb::{Database, ReadableDatabase, ReadableTable, TableDefinition};
+pub use redb::{ReadTransaction, WriteTransaction};
 use rkyv::api::high::HighDeserializer;
 use rkyv::bytecheck::CheckBytes;
 use rkyv::rancor::{self, Strategy};

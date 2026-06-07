@@ -25,6 +25,9 @@ subscriptions) is `sema-engine`'s. Workspace-shape intent stays in
   schema-version guard, closure-scoped read/write transactions, and
   `Table<K, V>` typed storage that hides rkyv encode/decode at the table
   boundary and returns owned rows.
+- Publicly name the closure-scoped transaction types it passes into
+  consumers, so higher layers can type local table reducers without
+  adding their own redb dependency.
 - Stay a clean kernel: respond to engine-side discoveries that require
   kernel changes, while most active development lives in `sema-engine`.
 
