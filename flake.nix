@@ -14,9 +14,14 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
+        # The cluster Rust toolchain is the newest nightly, pinned durably via
+        # fenix's flake lock inside rust-build — bump rust-build (or its fenix)
+        # to advance Rust, not a rolling-stable channel guarded by a per-crate
+        # frozen hash. `fromToolchainFile` keeps the `{ file; }` arg for
+        # call-compatibility; the channel/hash in it no longer drives the
+        # toolchain, so this crate gets nightly by merely repinning rust-build.
         rust = rust-build.lib.${system}.fromToolchainFile pkgs {
           file = ./rust-toolchain.toml;
-          sha256 = "sha256-gh/xTkxKHL4eiRXzWv8KP7vfjSk61Iq48x47BEDFgfk=";
         };
 
         inherit (rust) craneLib toolchain;
