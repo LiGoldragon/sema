@@ -9,6 +9,15 @@ Sema is to state what `signal-core` is to wire: the small kernel of
 primitives that higher layers build on. Full database-operation
 execution lives in `sema-engine`, not in this crate.
 
+The persistent typed-record store is named the **SEMA database** — not
+RAD or other nicknames. Sema is the workspace's pure binary domain-tree
+format; the redb-persisted records are conceptually a sema database. It
+holds strings (quotes, names, summaries) today, and those reduce as
+natural language becomes typed leaves. Internal database logic uses the
+same schema-defined message language that component signals use, so a
+growing database component can later split into its own daemon without
+changing the language pattern.
+
 > **Scope.** Today's `sema` is the Rust-on-redb storage kernel.
 > The eventually-self-hosting `Sema` substrate (the universal
 > medium for meaning, Sema-on-Sema) is a different artifact at a
@@ -172,6 +181,24 @@ Consequences for the layers above:
   transaction-coherent copy via redb's backup API or a filesystem
   copy-on-write snapshot — never an implicit property of the store.
 
+The higher-layer direction this serves is **archival lowering before
+hard deletion**: a component's data lifecycle prefers marking stale or
+low-certainty data and moving it out of the hot working DB before
+destroying it, keeping runtime state manageable. Recoverability is
+best-effort unless a stronger retention class applies. When a record
+moves to the archive its privacy variable moves with it, preserved at
+the original privacy level, and archive reads honor the same explicit
+privacy discipline as the live store. The archive itself is a
+specialized sema-database holding exactly one kind of archived object —
+the database name states what it archives — paired with a small
+archive-retrieving tool. `sema-engine`'s `CollectRemovalCandidates`
+archives the records it collects to a default archive surface before
+hot-store removal, with typed retrieval rather than ad-hoc caller files;
+when composite intent retires its source records, the sources are
+archived and referenced by hash identity from the composite so
+provenance survives. This is an engine-layer feature the kernel makes
+possible, not kernel behavior.
+
 ## Code Map
 
 ```text
@@ -256,6 +283,89 @@ This is **future work**, not first-prototype work. The current
 manual-`SchemaVersion` mechanic is the realization step for it.
 The eventual model retires this section's first paragraph, not
 the kernel itself.
+
+### Content-addressed migration — the engine-layer model
+
+The content-addressed model above resolves into a concrete migration
+design at the `sema-engine` / contract layer that the kernel serves.
+These are engine-layer facts, recorded here because they fix what the
+kernel's typed-table storage must support:
+
+- **Schema-layout schema as identity.** Each persona contract carries
+  an explicit content-addressable schema-layout schema in a NOTA-based
+  language. Its hash is its identity, so any edit changes the address —
+  the address is the version. A version-checking pipeline detects
+  schema-address mismatches between code and stored data, walks the
+  diff, and derives per-type migration operations baked into how types
+  are written. `MigrationIndex` is the runtime decoder lookup; migration
+  is per type; upgrade and downgrade are one compatibility-projection
+  relation, not two mechanisms.
+- **Upgrades are typed SEMA operations.** A protocol or
+  database-format change is itself a typed operation/message applied as
+  database work, and that same operation is the source for derived
+  datatype and upgrade/compatibility code. One library handles
+  record-level operations and schema-changing operations alike. Diff
+  operations come in three families — Add, Remove, Modify — where Modify
+  subdivides into ContainerEmbed, EnumWrap, Reorder, and KeyChange.
+- **rkyv headroom enables zero-cost changes.** rkyv's storage layout
+  reserves more namespace than data needs: a bool occupies a byte, a
+  small enum's discriminator fits in a byte. This headroom makes a class
+  of schema changes migration-free — adding a unit variant that still
+  fits the byte, appending struct fields under append-only encoding,
+  widening fixed-width ints — provided variant order is preserved. The
+  schema-layout schema exposes this headroom so derivation can skip
+  zero-cost changes. Cap'n-Proto-style structural-compatibility
+  discipline lives at the rkyv layer, not the NOTA text layer.
+
+## Version control — the reusable system
+
+The content-addressed versioning and migration the kernel supports is
+the storage face of a larger goal: a **reusable component
+version-control system**, foundational to the whole meta-work. The
+facts below are system-level direction — they live in `sema-engine` and
+its supporting libraries, not in this kernel — but they fix what the
+typed-table storage underneath must serve.
+
+- **Native version-controlled durability.** Component Sema databases
+  (each component's durable daemon state) get native version-controlled,
+  server-backed atomic durability with no state loss, built once as a
+  reusable library of generic types and traits every component opts
+  into. The design is Dolt-informed; strict-typed
+  hard-migration-per-schema-change is the core constraint, with the
+  exact generic mechanism settled by prior-art research.
+- **Full distributed-version-control semantics.** The system supports
+  branching, forking, rebasing, and merging over the typed database,
+  with per-component customizable intake, merge, and rebase policy: a
+  default implementation plus a per-component override. For example,
+  Spirit's guardian mediates rebase by admitting, rejecting, or
+  transforming each incoming entry.
+- **Operation log is authoritative; redb is a materialized view.** The
+  versioned operation log is the authoritative source of truth for
+  component Sema state, and the redb store becomes a rebuildable
+  materialized view folded from the log. This kernel inversion is chosen
+  for the first version-control implementation rather than deferred —
+  which is why this kernel keeps no history of its own beyond redb's
+  last-committed page pair (see Deletion durability): durable history
+  lives in the log above it.
+- **The remote is a mirror triad.** The version-control remote is a
+  dedicated mirror component triad (`mirror`, `signal-mirror`,
+  `meta-signal-mirror`). One payload-blind append-ingest mirror daemon
+  on the ouranos tailnet host serves every component store: it validates
+  sequence continuity and the expected head, deduplicates idempotently,
+  fsyncs before acking, and carries retention and privacy behind its
+  meta signal. Its own state is itself a sema-engine store.
+- **Cross-host transport.** Cross-host component transport for the
+  mirror is a tailnet-bound TCP listener in `triad-runtime`, reusing the
+  length-prefixed frame codec, with peer identity as a typed closed sum
+  that distinguishes kernel-vouched Unix-socket peers from tailnet TCP
+  peers. Ssh-forwarded sockets are rejected as a transport shape.
+- **One cryptographic basis.** A single consistent cryptographic basis
+  spans the entire version-control and backup system: blake3 for all
+  content addressing and Criome BLS (BLS12-381 curve, BLS signature
+  scheme) for signing and attesting history; no component diverges. The
+  pre-Criome agent-identity path already uses BLS12-381 keypairs (not
+  Ed25519) from day one, so identity transitions cleanly when Criome
+  lands.
 
 ## Macro-pattern integration
 
