@@ -34,7 +34,9 @@ The kernel owns:
 - Closure-scoped transactions: `read(|transaction| ...)` and
   `write(|transaction| ...)`.
 - Public transaction type aliases: consumers name `sema::ReadTransaction`
-  / `sema::WriteTransaction`, not `redb` transaction types directly.
+  / `sema::WriteTransaction`, not `redb` transaction types directly, so
+  higher layers can type local table reducers without adding their own
+  `redb` dependency.
 - Typed tables: `Table<K, V>` hides rkyv encode/decode at the table
   boundary and returns owned rows from scans.
 - The crate `Error` enum for kernel failures.
