@@ -27,8 +27,7 @@ changing the language pattern.
 > addressed Sema source, components carrying multiple versions
 > in runtime, translation as reducer work — is named in the
 > Versioning section below as **future work, not first-prototype
-> work**. See `~/primary/ESSENCE.md` §"Today and eventually" and
-> §"Versioning on the eventual stack".
+> work**. See `~/primary/ARCHITECTURE.md` §"Workspace vision and intent".
 
 ## Role
 
@@ -245,8 +244,8 @@ sibling library-only repository and is in active development; the
 first consumer migration (persona-mind) is in flight.
 
 Ongoing work for this crate is bounded: respond to engine-side
-discoveries that require kernel changes (per ESSENCE §"Backward
-compatibility is not a constraint" — `sema` may break to make the
+discoveries that require kernel changes (per `~/primary/ARCHITECTURE.md`
+§"Workspace vision and intent" — `sema` may break to make the
 engine substrate beautiful). Most active development lives in
 `sema-engine`.
 
@@ -262,7 +261,7 @@ loss or run a one-off migrator). The format-identity guard is
 separate and protects against rkyv layout drift across builds.
 
 Eventually, when the workspace self-hosts on Sema-on-Sema (per
-`~/primary/ESSENCE.md` §"Today and eventually"), versioning becomes
+`~/primary/ARCHITECTURE.md` §"Workspace vision and intent"), versioning becomes
 **content-addressed**:
 
 - A schema is identified by the hash of its Sema source. Equal hash
