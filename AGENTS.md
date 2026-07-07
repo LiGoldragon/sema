@@ -1,7 +1,5 @@
 # Agent instructions — sema
 
-You **MUST** read AGENTS.md at `github:ligoldragon/lore` — the workspace contract.
-
 ## Repo role
 
 The workspace's typed storage kernel. Sema opens redb files with an
