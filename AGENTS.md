@@ -21,3 +21,5 @@ state. Full database-operation execution lives in `sema-engine`.
   Criome; `reader_count` is not a sema kernel concept.
 - **rkyv feature-set** must match the project pin per
   lore/rust/rkyv.md.
+
+This repository is under fast development and constantly breaking.
