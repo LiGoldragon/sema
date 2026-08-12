@@ -23,3 +23,9 @@ state. Full database-operation execution lives in `sema-engine`.
   lore/rust/rkyv.md.
 
 This repository is under fast development and constantly breaking.
+
+## Protos estate status
+
+Stack: correct-new destination
+Status: component-associated, adoption unresolved
+Absence of a direct notation edge is not proof of adoption.
