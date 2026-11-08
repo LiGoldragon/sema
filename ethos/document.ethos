@@ -12,14 +12,14 @@ Library
           Table.Vector<Row> ]
   Row.Vector<Text>
   Title.Text                                ; a heading's words
-  Language.[ Ethos Datom Rust Nix Shell Ini Toml Mermaid Plain ]
+  ProgrammingLanguage.[ Ethos Datom Rust Nix Shell Ini Toml Mermaid Plain ]
   Text.Vector<Run>                          ; inside a paragraph
   Run.[ Words.String
         Emphasis.Text
         Strong.Text
         Code.String
         Reference ]                         ; a link
-  Code.{ Language Text }
+  Code.{ ProgrammingLanguage Text }
   Reference.{ Text Target }
   Target.[ Place Url.String ]
   Place.Vector<Text>                        ; the titles above a block, from the root
