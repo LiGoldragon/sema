@@ -1,6 +1,6 @@
 //! The one place a ProgrammingLanguage meets its spelling in a fence's info string.
 
-use crate::document::ProgrammingLanguage;
+use crate::ProgrammingLanguage;
 
 pub(crate) trait Spelled {
     fn spelling(&self) -> &'static str;

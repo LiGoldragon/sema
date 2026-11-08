@@ -1,23 +1,27 @@
 //! A whole module read and printed: the front matter first, then the body.
 //!
-//! The front matter is read as three YAML lines, each a field of FrontMatter, in any
-//! order, and printed back canonically in the type's order. Any other line in
-//! it is refused as Unsupported, carrying that line.
+//! The front matter is read as the three fields of FrontMatter, in any order,
+//! and printed back canonically in the type's order. The dependencies are read
+//! as a flow sequence on their line or a block sequence below it, and printed
+//! as a flow sequence. Any other line in it is refused as Unsupported,
+//! carrying that line.
 
-use crate::compose::{Composable, Refusing};
-use crate::document::Markdown;
-use crate::error::{FrontMatterField, Line, Problem, ReadRefusal};
-use crate::module::{
-    self, Dependencies, Description, FrontMatter, Module, ModuleName, ModuleText, Placement,
+use crate::compose::Refusing;
+use crate::module;
+use crate::reading::{Close, FrontLines, SourceLines};
+use crate::{
+    Composable, Dependencies, Description, FrontMatter, FrontMatterField, Line, Markdown, Module,
+    ModuleName, ModuleText, Placement, Printable, Problem, ReadRefusal,
 };
-use crate::print::Printable;
 
 /// The front-matter delimiter line.
 const DELIMITER: &str = "---";
 
 /// The one place a field meets its YAML key.
 const DESCRIPTION: &str = "description:";
-const DEPENDENCIES: &str = "dependencies: ";
+const DEPENDENCIES: &str = "dependencies:";
+/// An entry of a block sequence.
+const ENTRY: &str = "- ";
 const PLACEMENT: &str = "placement: ";
 
 impl module::Composable for ModuleText {
@@ -33,8 +37,8 @@ impl module::Composable for ModuleText {
             .find(|index| lines[*index] == DELIMITER)
             .ok_or_else(|| Line(1).refusal(&lines))?;
         let front_matter = FrontLines {
-            source: &lines,
-            close,
+            source_lines: SourceLines(lines.clone()),
+            close: Close(close as i64),
         }
         .front_matter()?;
         let rest = Markdown(lines[close + 1..].join("\n"));
@@ -49,12 +53,6 @@ impl module::Composable for ModuleText {
     }
 }
 
-/// The lines between the two delimiters; `close` is the closing one's index.
-struct FrontLines<'a> {
-    source: &'a [String],
-    close: usize,
-}
-
 trait FrontReading {
     fn front_matter(&self) -> Result<FrontMatter, ReadRefusal>;
     fn refused(&self, index: usize) -> ReadRefusal;
@@ -62,13 +60,16 @@ trait FrontReading {
     fn missing(&self, index: usize, field: FrontMatterField) -> ReadRefusal;
 }
 
-impl FrontReading for FrontLines<'_> {
+impl FrontReading for FrontLines {
     fn front_matter(&self) -> Result<FrontMatter, ReadRefusal> {
+        let source = &self.source_lines.0;
+        let close = self.close.0 as usize;
         let mut description = None;
         let mut dependencies = None;
         let mut placement = None;
-        for index in 1..self.close {
-            let line = self.source[index].as_str();
+        let mut index = 1;
+        while index < close {
+            let line = source[index].as_str();
             match (
                 line.strip_prefix(DESCRIPTION),
                 line.strip_prefix(DEPENDENCIES),
@@ -86,8 +87,26 @@ impl FrontReading for FrontLines<'_> {
                     }
                     description = Some(Description(read));
                 }
+                (_, Some(""), _) if dependencies.is_none() => {
+                    let mut names = Vec::new();
+                    while index + 1 < close {
+                        let Some(entry) = source[index + 1].trim_start().strip_prefix(ENTRY) else {
+                            break;
+                        };
+                        let name = entry.name().ok_or_else(|| self.refused(index + 1))?;
+                        names.push(name);
+                        index += 1;
+                    }
+                    if names.is_empty() {
+                        return Err(self.missing(index, FrontMatterField::Dependencies));
+                    }
+                    dependencies = Some(Dependencies(names));
+                }
                 (_, Some(value), _) if dependencies.is_none() => {
-                    let names = value.names().ok_or_else(|| self.refused(index))?;
+                    let names = value
+                        .strip_prefix(' ')
+                        .and_then(Scalar::names)
+                        .ok_or_else(|| self.refused(index))?;
                     dependencies = Some(Dependencies(names));
                 }
                 (_, _, Some(value)) if placement.is_none() => {
@@ -96,11 +115,12 @@ impl FrontReading for FrontLines<'_> {
                 }
                 _ => return Err(self.refused(index)),
             }
+            index += 1;
         }
         let description =
-            description.ok_or_else(|| self.missing(self.close, FrontMatterField::Description))?;
+            description.ok_or_else(|| self.missing(close, FrontMatterField::Description))?;
         let dependencies =
-            dependencies.ok_or_else(|| self.missing(self.close, FrontMatterField::Dependencies))?;
+            dependencies.ok_or_else(|| self.missing(close, FrontMatterField::Dependencies))?;
         Ok(FrontMatter {
             description,
             dependencies,
@@ -109,7 +129,7 @@ impl FrontReading for FrontLines<'_> {
     }
 
     fn refused(&self, index: usize) -> ReadRefusal {
-        Line(index as i64 + 1).refusal(self.source)
+        Line(index as i64 + 1).refusal(&self.source_lines.0)
     }
 
     fn missing(&self, index: usize, field: FrontMatterField) -> ReadRefusal {
@@ -133,6 +153,9 @@ trait Scalar {
     fn printed_description(&self) -> String;
     /// A flow sequence of plain names, `[]` or `[a, b]`.
     fn names(&self) -> Option<Vec<ModuleName>>;
+    /// A module name as written: a plain scalar that also stands in a flow
+    /// sequence, `vision-sema` or `intent:energy`.
+    fn name(&self) -> Option<ModuleName>;
 }
 
 impl Scalar for str {
@@ -183,17 +206,14 @@ impl Scalar for str {
         let inner = self.strip_prefix('[')?.strip_suffix(']')?;
         match inner.is_empty() {
             true => Some(Vec::new()),
-            false => inner
-                .split(", ")
-                .map(|name| {
-                    let plain = !name.is_empty()
-                        && name
-                            .chars()
-                            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
-                    plain.then(|| ModuleName(name.to_string()))
-                })
-                .collect(),
+            false => inner.split(", ").map(Scalar::name).collect(),
         }
+    }
+
+    fn name(&self) -> Option<ModuleName> {
+        let flow_safe = !self.contains([',', '[', ']', '{', '}']) && !self.contains(": ");
+        (self.plain_scalar() && flow_safe && !self.ends_with(':'))
+            .then(|| ModuleName(self.to_string()))
     }
 }
 
@@ -232,11 +252,11 @@ impl module::Printable for Module {
             .map(|name| name.0.as_str())
             .collect();
         let mut out = format!(
-            "{DELIMITER}\n{DESCRIPTION} {}\n{DEPENDENCIES}[{}]\n",
+            "{DELIMITER}\n{DESCRIPTION} {}\n{DEPENDENCIES} [{}]\n",
             self.front_matter.description.0.printed_description(),
             names.join(", ")
         );
-        if let Some(placement) = self.front_matter.placement_option {
+        if let Some(placement) = &self.front_matter.placement_option {
             out += &format!("{PLACEMENT}{}\n", placement.spelling());
         }
         out += DELIMITER;

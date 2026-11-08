@@ -9,20 +9,15 @@ use comrak::nodes::{
 use comrak::{Arena, Options};
 
 use crate::commonmark::Configured;
-use crate::document::{Block, Depth, Document, Markdown, Place, Row, Target, Text, TextPart};
 use crate::programming_language::Spelled;
-
-pub trait Printable {
-    fn print(&self) -> Markdown;
-}
+use crate::{Block, Depth, Document, Markdown, Place, Printable, Row, Target, Text, TextPart};
 
 impl Printable for Document {
     fn print(&self) -> Markdown {
         let arena = Arena::new();
-        let builder = Builder { arena: &arena };
-        let root = builder.node(NodeValue::Document);
+        let root = arena.node(NodeValue::Document);
         for block in &self.0 {
-            builder.block(root, block, Depth(1));
+            arena.block(root, block, Depth(1));
         }
         let mut out = String::new();
         comrak::format_commonmark(root, &Options::sema(), &mut out)
@@ -32,18 +27,12 @@ impl Printable for Document {
 }
 
 /// Builds comrak's tree from the Document, its nodes held by one arena.
-struct Builder<'a> {
-    arena: &'a Arena<'a>,
-}
-
-type Node<'a> = &'a AstNode<'a>;
-
 trait Building<'a> {
-    fn node(&self, value: NodeValue) -> Node<'a>;
-    fn block(&self, parent: Node<'a>, block: &Block, depth: Depth);
-    fn row(&self, table: Node<'a>, row: &Row, header: bool);
-    fn text(&self, parent: Node<'a>, text: &Text);
-    fn words(&self, parent: Node<'a>, words: &str);
+    fn node(&'a self, value: NodeValue) -> &'a AstNode<'a>;
+    fn block(&'a self, parent: &'a AstNode<'a>, block: &Block, depth: Depth);
+    fn row(&'a self, table: &'a AstNode<'a>, row: &Row, header: bool);
+    fn text(&'a self, parent: &'a AstNode<'a>, text: &Text);
+    fn words(&'a self, parent: &'a AstNode<'a>, words: &str);
 }
 
 /// A bullet list, tight, marked `-`.
@@ -63,12 +52,12 @@ impl Bullet for NodeList {
     }
 }
 
-impl<'a> Building<'a> for Builder<'a> {
-    fn node(&self, value: NodeValue) -> Node<'a> {
-        self.arena.alloc(AstNode::from(value))
+impl<'a> Building<'a> for Arena<'a> {
+    fn node(&'a self, value: NodeValue) -> &'a AstNode<'a> {
+        self.alloc(AstNode::from(value))
     }
 
-    fn block(&self, parent: Node<'a>, block: &Block, depth: Depth) {
+    fn block(&'a self, parent: &'a AstNode<'a>, block: &Block, depth: Depth) {
         match block {
             Block::Statement(text) => {
                 let paragraph = self.node(NodeValue::Paragraph);
@@ -134,7 +123,7 @@ impl<'a> Building<'a> for Builder<'a> {
         }
     }
 
-    fn row(&self, table: Node<'a>, row: &Row, header: bool) {
+    fn row(&'a self, table: &'a AstNode<'a>, row: &Row, header: bool) {
         let row_node = self.node(NodeValue::TableRow(header));
         for cell in &row.0 {
             let cell_node = self.node(NodeValue::TableCell);
@@ -144,7 +133,7 @@ impl<'a> Building<'a> for Builder<'a> {
         table.append(row_node);
     }
 
-    fn text(&self, parent: Node<'a>, text: &Text) {
+    fn text(&'a self, parent: &'a AstNode<'a>, text: &Text) {
         for text_part in &text.0 {
             match text_part {
                 TextPart::Words(words) => self.words(parent, words),
@@ -178,66 +167,16 @@ impl<'a> Building<'a> for Builder<'a> {
         }
     }
 
-    /// Words, a newline among them a soft line break, and a tag written in
-    /// prose printed as written, as it was read.
-    fn words(&self, parent: Node<'a>, words: &str) {
+    /// Words, a newline among them a soft line break.
+    fn words(&'a self, parent: &'a AstNode<'a>, words: &str) {
         for (index, line) in words.split('\n').enumerate() {
             if index > 0 {
                 parent.append(self.node(NodeValue::SoftBreak));
             }
-            for segment in line.segments() {
-                let value = match segment {
-                    Segment::Words(words) => NodeValue::Text(words.to_string().into()),
-                    Segment::Tag(tag) => NodeValue::HtmlInline(tag.to_string()),
-                };
-                parent.append(self.node(value));
+            if !line.is_empty() {
+                parent.append(self.node(NodeValue::Text(line.to_string().into())));
             }
         }
-    }
-}
-
-/// A line of words split where a tag is written: `<` and a letter or `/`,
-/// then anything but a bracket or a newline, then `>`.
-enum Segment<'s> {
-    Words(&'s str),
-    Tag(&'s str),
-}
-
-trait Segmented {
-    fn segments(&self) -> Vec<Segment<'_>>;
-}
-
-impl Segmented for str {
-    fn segments(&self) -> Vec<Segment<'_>> {
-        let mut segments = Vec::new();
-        let mut start = 0;
-        let mut cursor = 0;
-        while let Some(offset) = self[cursor..].find('<') {
-            let open = cursor + offset;
-            let rest = &self[open + 1..];
-            let tag_end = rest
-                .chars()
-                .next()
-                .filter(|first| first.is_ascii_alphabetic() || *first == '/')
-                .and_then(|_| rest.find(['<', '>']))
-                .filter(|end| rest.as_bytes()[*end] == b'>');
-            match tag_end {
-                Some(end) => {
-                    if start < open {
-                        segments.push(Segment::Words(&self[start..open]));
-                    }
-                    let close = open + 1 + end + 1;
-                    segments.push(Segment::Tag(&self[open..close]));
-                    start = close;
-                    cursor = close;
-                }
-                None => cursor = open + 1,
-            }
-        }
-        if start < self.len() {
-            segments.push(Segment::Words(&self[start..]));
-        }
-        segments
     }
 }
 

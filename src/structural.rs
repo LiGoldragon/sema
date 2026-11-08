@@ -1,34 +1,22 @@
 //! What is asked of a document, by the titles above its blocks.
 //!
 //! Implemented: outline, code, references, search. Not yet: edit, whose
-//! Mismatch names a Found block that no rule yet picks.
+//! Mismatch names a Found block that no rule yet picks; it stops.
 
-use crate::document::{
-    Block, CodeBlock, Depth, Document, Kind, Outline, Pattern, Place, Reference, Section, Target,
-    Text, TextPart,
+use crate::{
+    Block, CodeBlock, Depth, Document, Edit, EditRefusal, Kind, Outline, Pattern, Place, Reference,
+    Section, Structural, Target, Text, TextPart,
 };
-
-pub trait Structural {
-    /// One outline per top-level section, to the depth; empty when there is none.
-    fn outline(&self, depth: Depth) -> Vec<Outline>;
-    /// The code blocks under a section, its subsections included.
-    fn code(&self, place: &Place) -> Vec<CodeBlock>;
-    /// The links under a section, its subsections and titles included.
-    fn references(&self, place: &Place) -> Vec<Reference>;
-    /// The place of each block of the kind whose text holds the pattern; a
-    /// heading's place ends in its own title.
-    fn search(&self, kind: Kind, pattern: &Pattern) -> Vec<Place>;
-}
 
 impl Structural for Document {
     fn outline(&self, depth: Depth) -> Vec<Outline> {
         self.0.as_slice().outlined(depth)
     }
 
-    fn code(&self, place: &Place) -> Vec<CodeBlock> {
+    fn code(&self, place: Place) -> Vec<CodeBlock> {
         self.placed()
             .into_iter()
-            .filter(|(above, _)| above.under(place))
+            .filter(|(above, _)| above.under(&place))
             .filter_map(|(_, block)| match block {
                 Block::CodeBlock(code) => Some(code.clone()),
                 _ => None,
@@ -36,20 +24,20 @@ impl Structural for Document {
             .collect()
     }
 
-    fn references(&self, place: &Place) -> Vec<Reference> {
+    fn references(&self, place: Place) -> Vec<Reference> {
         self.placed()
             .into_iter()
-            .filter(|(above, _)| above.under(place))
+            .filter(|(above, _)| above.under(&place))
             .flat_map(|(_, block)| block.own_texts())
             .flat_map(|text| text.references())
             .collect()
     }
 
-    fn search(&self, kind: Kind, pattern: &Pattern) -> Vec<Place> {
+    fn search(&self, kind: Kind, pattern: Pattern) -> Vec<Place> {
         let holds = |text: String| text.contains(&pattern.0);
         let mut places = Vec::new();
         for (above, block) in self.placed() {
-            match (kind, block) {
+            match (&kind, block) {
                 (Kind::Headings, Block::Section(section)) if holds(section.title.0.plain()) => {
                     places.push(above.within(&section.title.0));
                 }
@@ -79,6 +67,12 @@ impl Structural for Document {
             }
         }
         places
+    }
+
+    /// UNIMPLEMENTED: a Mismatch names a Found block, and no rule yet says
+    /// which block is found when no block at the place equals the expected one.
+    fn edit(&mut self, _edit: Edit) -> Result<Document, EditRefusal> {
+        unimplemented!("which block a Mismatch names as Found is not designed in Sema v0")
     }
 }
 

@@ -403,17 +403,17 @@
         "rust-build": "rust-build_7"
       },
       "locked": {
-        "lastModified": 1794166305,
-        "narHash": "sha256-jV0hRrqGpr4Gyj/N9JAI0IsBOLEUgwGblRzAvTWXraE=",
+        "lastModified": 1794172314,
+        "narHash": "sha256-r5JfLwqvbwsmMOR9fB2RDVIjRqw6ux7qlyX496kJ9Vs=",
         "owner": "LiGoldragon",
         "repo": "ethos-zero",
-        "rev": "04d93e4b705a1b2abbb806fa385a04ce74b13cdd",
+        "rev": "e77470d4cbe1c72389f2786fef99253a5ac5f00b",
         "type": "github"
       },
       "original": {
         "owner": "LiGoldragon",
+        "ref": "v21.0.0",
         "repo": "ethos-zero",
-        "rev": "04d93e4b705a1b2abbb806fa385a04ce74b13cdd",
         "type": "github"
       }
     },

@@ -6,60 +6,33 @@ use comrak::nodes::{AstNode, ListType, NodeCode, NodeHeading, NodeValue, TableAl
 use comrak::{Arena, Options};
 
 use crate::commonmark::Configured;
-use crate::document::{
-    Block, CodeBlock, Depth, Document, Markdown, ProgrammingLanguage, Reference, Row, Section,
-    Target, Text, TextPart, Title,
+use crate::reading::{Heading_Data, OpenSection, Piece, SourceLines};
+use crate::{
+    Block, CodeBlock, Composable, Depth, Document, Line, Markdown, Problem, ProgrammingLanguage,
+    ReadRefusal, Reference, Row, Section, Target, Text, TextPart, Title,
 };
-use crate::error::{Line, Problem, ReadRefusal};
-
-pub trait Composable {
-    fn compose(&self) -> Result<Document, ReadRefusal>;
-}
 
 impl Composable for Markdown {
     fn compose(&self) -> Result<Document, ReadRefusal> {
         let arena = Arena::new();
         let root = comrak::parse_document(&arena, &self.0, &Options::sema());
-        let reader = Reader {
-            source: self.0.split('\n').map(str::to_string).collect(),
-        };
+        let reader = SourceLines(self.0.split('\n').map(str::to_string).collect());
         let pieces = reader.pieces(root)?;
         reader.nested(pieces).map(Document)
     }
 }
 
-/// A heading or a block, before headings are nested into sections.
-enum Piece {
-    Heading(Depth, Title, Line),
-    Block(Block),
-}
-
-/// A section still open while its heading's blocks are read.
-struct Open {
-    depth: Depth,
-    title: Title,
-    block_vector: Vec<Block>,
-}
-
-/// The walk from comrak's tree into the Document, holding the text as written
-/// for what a refusal carries.
-struct Reader {
-    source: Vec<String>,
-}
-
-type Node<'a> = &'a AstNode<'a>;
-
 trait Reading {
-    fn pieces<'a>(&self, container: Node<'a>) -> Result<Vec<Piece>, ReadRefusal>;
-    fn piece<'a>(&self, node: Node<'a>) -> Result<Piece, ReadRefusal>;
+    fn pieces<'a>(&self, container: &'a AstNode<'a>) -> Result<Vec<Piece>, ReadRefusal>;
+    fn piece<'a>(&self, node: &'a AstNode<'a>) -> Result<Piece, ReadRefusal>;
     fn nested(&self, pieces: Vec<Piece>) -> Result<Vec<Block>, ReadRefusal>;
     /// The blocks of a list item or a quote, where a heading has no place.
-    fn contained<'a>(&self, container: Node<'a>) -> Result<Vec<Block>, ReadRefusal>;
-    fn list<'a>(&self, list: Node<'a>) -> Result<Block, ReadRefusal>;
-    fn table<'a>(&self, table: Node<'a>) -> Result<Block, ReadRefusal>;
-    fn text<'a>(&self, container: Node<'a>) -> Result<Text, ReadRefusal>;
-    fn text_part<'a>(&self, node: Node<'a>) -> Result<TextPart, ReadRefusal>;
-    fn refused<'a>(&self, node: Node<'a>) -> ReadRefusal;
+    fn contained<'a>(&self, container: &'a AstNode<'a>) -> Result<Vec<Block>, ReadRefusal>;
+    fn list<'a>(&self, list: &'a AstNode<'a>) -> Result<Block, ReadRefusal>;
+    fn table<'a>(&self, table: &'a AstNode<'a>) -> Result<Block, ReadRefusal>;
+    fn text<'a>(&self, container: &'a AstNode<'a>) -> Result<Text, ReadRefusal>;
+    fn text_part<'a>(&self, node: &'a AstNode<'a>) -> Result<TextPart, ReadRefusal>;
+    fn refused<'a>(&self, node: &'a AstNode<'a>) -> ReadRefusal;
 }
 
 trait Located {
@@ -72,20 +45,20 @@ impl Located for AstNode<'_> {
     }
 }
 
-impl Reading for Reader {
-    fn pieces<'a>(&self, container: Node<'a>) -> Result<Vec<Piece>, ReadRefusal> {
+impl Reading for SourceLines {
+    fn pieces<'a>(&self, container: &'a AstNode<'a>) -> Result<Vec<Piece>, ReadRefusal> {
         container.children().map(|node| self.piece(node)).collect()
     }
 
-    fn piece<'a>(&self, node: Node<'a>) -> Result<Piece, ReadRefusal> {
+    fn piece<'a>(&self, node: &'a AstNode<'a>) -> Result<Piece, ReadRefusal> {
         let value = node.data.borrow().value.clone();
         let block = match value {
             NodeValue::Heading(NodeHeading { level, .. }) => {
-                return Ok(Piece::Heading(
-                    Depth(level as usize),
-                    Title(self.text(node)?),
-                    node.line(),
-                ));
+                return Ok(Piece::Heading(Heading_Data {
+                    depth: Depth(i64::from(level)),
+                    title: Title(self.text(node)?),
+                    line: node.line(),
+                }));
             }
             NodeValue::Paragraph => Block::Statement(self.text(node)?),
             NodeValue::CodeBlock(code) => {
@@ -113,8 +86,8 @@ impl Reading for Reader {
     /// document is the top and each deeper level a child.
     fn nested(&self, pieces: Vec<Piece>) -> Result<Vec<Block>, ReadRefusal> {
         let mut root = Vec::new();
-        let mut open: Vec<Open> = Vec::new();
-        let close = |open: &mut Vec<Open>, root: &mut Vec<Block>| {
+        let mut open: Vec<OpenSection> = Vec::new();
+        let close = |open: &mut Vec<OpenSection>, root: &mut Vec<Block>| {
             if let Some(section) = open.pop() {
                 let block = Block::Section(Section {
                     title: section.title,
@@ -129,7 +102,7 @@ impl Reading for Reader {
         let top = pieces
             .iter()
             .filter_map(|piece| match piece {
-                Piece::Heading(written, _, _) => Some(*written),
+                Piece::Heading(heading) => Some(heading.depth),
                 Piece::Block(_) => None,
             })
             .min()
@@ -140,16 +113,20 @@ impl Reading for Reader {
                     Some(section) => section.block_vector.push(block),
                     None => root.push(block),
                 },
-                Piece::Heading(written, title, line) => {
+                Piece::Heading(Heading_Data {
+                    depth: written,
+                    title,
+                    line,
+                }) => {
                     let depth = Depth(written.0 - top.0 + 1);
                     while open.last().is_some_and(|section| section.depth >= depth) {
                         close(&mut open, &mut root);
                     }
                     let above = open.last().map_or(Depth(0), |section| section.depth);
                     if depth.0 != above.0 + 1 {
-                        return Err(line.refusal(&self.source));
+                        return Err(line.refusal(&self.0));
                     }
-                    open.push(Open {
+                    open.push(OpenSection {
                         depth,
                         title,
                         block_vector: Vec::new(),
@@ -163,18 +140,18 @@ impl Reading for Reader {
         Ok(root)
     }
 
-    fn contained<'a>(&self, container: Node<'a>) -> Result<Vec<Block>, ReadRefusal> {
+    fn contained<'a>(&self, container: &'a AstNode<'a>) -> Result<Vec<Block>, ReadRefusal> {
         self.pieces(container)?
             .into_iter()
             .map(|piece| match piece {
                 Piece::Block(block) => Ok(block),
-                Piece::Heading(_, _, line) => Err(line.refusal(&self.source)),
+                Piece::Heading(heading) => Err(heading.line.refusal(&self.0)),
             })
             .collect()
     }
 
     /// A list item holds one block.
-    fn list<'a>(&self, list: Node<'a>) -> Result<Block, ReadRefusal> {
+    fn list<'a>(&self, list: &'a AstNode<'a>) -> Result<Block, ReadRefusal> {
         let items = list
             .children()
             .map(|item| {
@@ -189,7 +166,7 @@ impl Reading for Reader {
     }
 
     /// A table without alignment: its rows, the header first.
-    fn table<'a>(&self, table: Node<'a>) -> Result<Block, ReadRefusal> {
+    fn table<'a>(&self, table: &'a AstNode<'a>) -> Result<Block, ReadRefusal> {
         if let NodeValue::Table(shape) = &table.data.borrow().value
             && shape.alignments.iter().any(|a| *a != TableAlignment::None)
         {
@@ -209,7 +186,7 @@ impl Reading for Reader {
 
     /// The inside of a paragraph, a heading or a cell; adjacent words are one
     /// TextPart, and a soft line break is a newline among them.
-    fn text<'a>(&self, container: Node<'a>) -> Result<Text, ReadRefusal> {
+    fn text<'a>(&self, container: &'a AstNode<'a>) -> Result<Text, ReadRefusal> {
         let mut text_parts: Vec<TextPart> = Vec::new();
         for node in container.children() {
             match (text_parts.last_mut(), self.text_part(node)?) {
@@ -220,7 +197,7 @@ impl Reading for Reader {
         Ok(Text(text_parts))
     }
 
-    fn text_part<'a>(&self, node: Node<'a>) -> Result<TextPart, ReadRefusal> {
+    fn text_part<'a>(&self, node: &'a AstNode<'a>) -> Result<TextPart, ReadRefusal> {
         let value = node.data.borrow().value.clone();
         Ok(match value {
             NodeValue::Text(words) => TextPart::Words(words.to_string()),
@@ -236,8 +213,8 @@ impl Reading for Reader {
         })
     }
 
-    fn refused<'a>(&self, node: Node<'a>) -> ReadRefusal {
-        node.line().refusal(&self.source)
+    fn refused<'a>(&self, node: &'a AstNode<'a>) -> ReadRefusal {
+        node.line().refusal(&self.0)
     }
 }
 
@@ -259,3 +236,16 @@ impl Refusing for Line {
         }
     }
 }
+
+impl std::fmt::Display for ReadRefusal {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.problem {
+            Problem::Unsupported(written) => {
+                write!(formatter, "line {}: Unsupported «{written}»", self.line.0)
+            }
+            Problem::Missing(field) => write!(formatter, "line {}: Missing {field:?}", self.line.0),
+        }
+    }
+}
+
+impl std::error::Error for ReadRefusal {}

@@ -1,51 +1,62 @@
-//! The types of ethos/module.ethos: a belief module is its front matter, typed,
-//! then its body (ruled by Psyche core Fable, inferred, pending the living).
-
-use crate::document::Document;
-use crate::error::ReadRefusal;
-
-/// The text, front matter then Markdown, as it is written.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#![allow(
+    dead_code,
+    non_camel_case_types,
+    non_snake_case,
+    clippy::type_complexity
+)]
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct ModuleText(pub String);
-
-/// A module's name, kind-subject, as written in the YAML: vision-sema.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct ModuleName(pub String);
-
-/// Where the module is placed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum Placement {
     SystemPrompt,
     Skill,
 }
-
-/// The front matter, typed; field order is print order.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Description(pub String);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Dependencies(pub std::vec::Vec<ModuleName>);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct FrontMatter {
     pub description: Description,
     pub dependencies: Dependencies,
-    pub placement_option: Option<Placement>,
+    pub placement_option: std::option::Option<Placement>,
 }
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Description(pub String);
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Dependencies(pub Vec<ModuleName>);
-
-/// A belief module: its front matter, then its body.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct Module {
     pub front_matter: FrontMatter,
-    pub document: Document,
+    pub document: sema::Document,
 }
-
-/// A module text composes into a Module.
+#[rustfmt::skip]
 pub trait Composable {
-    fn compose(&self) -> Result<Module, ReadRefusal>;
+    fn compose(&self) -> std::result::Result<Module, sema::ReadRefusal>;
 }
-
-/// A Module prints into a module text.
+#[rustfmt::skip]
 pub trait Printable {
     fn print(&self) -> ModuleText;
 }
+#[rustfmt::skip]
+const _: () = {
+    fn assert_moduletext_composable<T: Composable>() {}
+    let _ = assert_moduletext_composable::<ModuleText>;
+};
+#[rustfmt::skip]
+const _: () = {
+    fn assert_module_printable<T: Printable>() {}
+    let _ = assert_module_printable::<Module>;
+};

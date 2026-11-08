@@ -5,7 +5,7 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     ethos-zero = {
-      url = "github:LiGoldragon/ethos-zero/04d93e4b705a1b2abbb806fa385a04ce74b13cdd";
+      url = "github:LiGoldragon/ethos-zero/v21.0.0";
       inputs.nixpkgs.follows = "nixpkgs";
     };
     rust-build = {
@@ -33,6 +33,23 @@
           clippy = craneLib.cargoClippy (commonArguments // {
             inherit cargoArtifacts;
             cargoClippyExtraArgs = "--all-targets -- -D warnings";
+          });
+          # Every generated module is what ethos-zero generates from its ethos now.
+          generated = pkgs.runCommand "sema-generated-fresh" {
+            nativeBuildInputs = [ ethos-zero.packages.${system}.default ];
+          } ''
+            mkdir generated
+            for file in ${./ethos}/*.ethos; do
+              ethos-zero "Generate.{ $file $PWD/generated }"
+            done
+            for file in generated/*.rs; do
+              diff -u ${./src}/$(basename $file) $file
+            done
+            touch $out
+          '';
+          datom = craneLib.cargoBuild (commonArguments // {
+            inherit cargoArtifacts;
+            cargoExtraArgs = "--locked --features datom";
           });
           ethos = pkgs.runCommand "sema-ethos" {
             nativeBuildInputs = [ ethos-zero.packages.${system}.default ];

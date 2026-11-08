@@ -2,7 +2,7 @@
 name         = "sema"
 version      = "0.1.0"
 edition      = "2024"
-rust-version = "1.85"
+rust-version = "1.89"
 license      = "MIT OR Apache-2.0"
 description  = "Sema version 0: Markdown read into a typed document tree and printed back."
 publish      = false
@@ -11,5 +11,10 @@ publish      = false
 name = "sema"
 path = "cli/main.rs"
 
+[features]
+datom = ["dep:datom-codec"]
+
 [dependencies]
-comrak = { version = "0.59", default-features = false }
+comrak      = { version = "0.59", default-features = false }
+rkyv        = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
+datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "5cd6219", optional = true }

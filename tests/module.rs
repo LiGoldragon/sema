@@ -143,3 +143,21 @@ fn a_description_that_plain_cannot_carry_prints_quoted() {
         assert_eq!(module(&read.print().0), Ok(read));
     }
 }
+
+#[test]
+fn dependencies_read_in_either_form_and_print_as_a_flow_sequence() {
+    let block =
+        module("---\ndescription: d\ndependencies:\n  - intent:energy\n  - vision-sema\n---\n")
+            .expect("a block sequence reads");
+    let flow = module("---\ndescription: d\ndependencies: [intent:energy, vision-sema]\n---\n")
+        .expect("a flow sequence reads");
+    assert_eq!(block, flow);
+    assert_eq!(
+        block.print().0,
+        "---\ndescription: d\ndependencies: [intent:energy, vision-sema]\n---\n"
+    );
+    assert_eq!(
+        module("---\ndescription: d\ndependencies:\n---\n"),
+        Err((Line(3), Problem::Missing(FrontMatterField::Dependencies)))
+    );
+}

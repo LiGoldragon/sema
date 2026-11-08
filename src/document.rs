@@ -1,46 +1,67 @@
-//! The typed tree of ethos/document.ethos. Each declaration is one Rust type;
-//! an inline payload carries the `_Data` name the ethos rules derive for it.
-#![allow(non_camel_case_types)]
-
-/// The text, as it is written.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Markdown(pub String);
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Document(pub Vec<Block>);
-
-/// A heading and what is under it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#![allow(
+    dead_code,
+    non_camel_case_types,
+    non_snake_case,
+    clippy::type_complexity
+)]
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Document(pub std::vec::Vec<Block>);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[rkyv(
+    serialize_bounds(
+        __S:rkyv::ser::Writer+rkyv::ser::Allocator,
+        __S::Error:rkyv::rancor::Source
+    )
+)]
+#[rkyv(deserialize_bounds(__D::Error:rkyv::rancor::Source))]
+#[rkyv(
+    bytecheck(
+        bounds(__C:rkyv::validation::ArchiveContext, __C::Error:rkyv::rancor::Source)
+    )
+)]
 pub struct Section {
     pub title: Title,
-    pub block_vector: Vec<Block>,
+    #[rkyv(omit_bounds)]
+    pub block_vector: std::vec::Vec<Block>,
 }
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Title(pub Text);
-
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[rkyv(
+    serialize_bounds(
+        __S:rkyv::ser::Writer+rkyv::ser::Allocator,
+        __S::Error:rkyv::rancor::Source
+    )
+)]
+#[rkyv(deserialize_bounds(__D::Error:rkyv::rancor::Source))]
+#[rkyv(
+    bytecheck(
+        bounds(__C:rkyv::validation::ArchiveContext, __C::Error:rkyv::rancor::Source)
+    )
+)]
 pub enum Block {
-    /// A paragraph.
     Statement(Text),
-    Section(Section),
-    /// A fence; Mermaid is a figure.
+    Section(#[rkyv(omit_bounds)] Section),
     CodeBlock(CodeBlock),
-    List(Vec<Block>),
-    Quote(Vec<Block>),
-    Table(Vec<Row>),
+    List(#[rkyv(omit_bounds)] std::vec::Vec<Block>),
+    Quote(#[rkyv(omit_bounds)] std::vec::Vec<Block>),
+    Table(std::vec::Vec<Row>),
 }
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CodeBlock {
-    pub programming_language: ProgrammingLanguage,
-    pub text: Text,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Row(pub Vec<Text>);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Row(pub std::vec::Vec<Text>);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Title(pub Text);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum ProgrammingLanguage {
     Ethos,
     Datom,
@@ -52,55 +73,191 @@ pub enum ProgrammingLanguage {
     Mermaid,
     Plain,
 }
-
-/// Inside a paragraph.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Text(pub Vec<TextPart>);
-
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Text(pub std::vec::Vec<TextPart>);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[rkyv(
+    serialize_bounds(
+        __S:rkyv::ser::Writer+rkyv::ser::Allocator,
+        __S::Error:rkyv::rancor::Source
+    )
+)]
+#[rkyv(deserialize_bounds(__D::Error:rkyv::rancor::Source))]
+#[rkyv(
+    bytecheck(
+        bounds(__C:rkyv::validation::ArchiveContext, __C::Error:rkyv::rancor::Source)
+    )
+)]
 pub enum TextPart {
     Words(String),
-    Emphasis(Text),
-    Strong(Text),
+    Emphasis(#[rkyv(omit_bounds)] Text),
+    Strong(#[rkyv(omit_bounds)] Text),
     InlineCode(String),
-    /// A link.
-    Reference(Reference),
+    Reference(#[rkyv(omit_bounds)] Reference),
 }
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Reference {
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct CodeBlock {
+    pub programming_language: ProgrammingLanguage,
     pub text: Text,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[rkyv(
+    serialize_bounds(
+        __S:rkyv::ser::Writer+rkyv::ser::Allocator,
+        __S::Error:rkyv::rancor::Source
+    )
+)]
+#[rkyv(deserialize_bounds(__D::Error:rkyv::rancor::Source))]
+#[rkyv(
+    bytecheck(
+        bounds(__C:rkyv::validation::ArchiveContext, __C::Error:rkyv::rancor::Source)
+    )
+)]
+pub struct Reference {
+    #[rkyv(omit_bounds)]
+    pub text: Text,
+    #[rkyv(omit_bounds)]
     pub target: Target,
 }
-
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[rkyv(
+    serialize_bounds(
+        __S:rkyv::ser::Writer+rkyv::ser::Allocator,
+        __S::Error:rkyv::rancor::Source
+    )
+)]
+#[rkyv(deserialize_bounds(__D::Error:rkyv::rancor::Source))]
+#[rkyv(
+    bytecheck(
+        bounds(__C:rkyv::validation::ArchiveContext, __C::Error:rkyv::rancor::Source)
+    )
+)]
 pub enum Target {
-    Place(Place),
+    Place(#[rkyv(omit_bounds)] Place),
     Url(String),
 }
-
-/// The titles above a block, from the root.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Place(pub Vec<Text>);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Depth(pub usize);
-
-/// The kind of block a search looks in.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Place(pub std::vec::Vec<Text>);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Depth(pub i64);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+#[rkyv(
+    serialize_bounds(
+        __S:rkyv::ser::Writer+rkyv::ser::Allocator,
+        __S::Error:rkyv::rancor::Source
+    )
+)]
+#[rkyv(deserialize_bounds(__D::Error:rkyv::rancor::Source))]
+#[rkyv(
+    bytecheck(
+        bounds(__C:rkyv::validation::ArchiveContext, __C::Error:rkyv::rancor::Source)
+    )
+)]
+pub struct Outline {
+    pub title: Title,
+    #[rkyv(omit_bounds)]
+    pub outline_vector: std::vec::Vec<Outline>,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub enum Kind {
     Headings,
     Statements,
     CodeBlocks,
     References,
 }
-
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
 pub struct Pattern(pub String);
-
-/// A heading and the headings under it, to a depth.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Outline {
-    pub title: Title,
-    pub outline_vector: Vec<Outline>,
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Insert_Data {
+    pub place: Place,
+    pub block: Block,
 }
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Old(pub Block);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct New(pub Block);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Replace_Data {
+    pub place: Place,
+    pub old: Old,
+    pub new: New,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Remove_Data {
+    pub place: Place,
+    pub block: Block,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub enum Edit {
+    Insert(Insert_Data),
+    Replace(Replace_Data),
+    Remove(Remove_Data),
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Expected(pub Block);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Found(pub Block);
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub struct Mismatch_Data {
+    pub place: Place,
+    pub expected: Expected,
+    pub found: Found,
+}
+#[rustfmt::skip]
+#[derive(rkyv::Archive, rkyv::Serialize, rkyv::Deserialize, Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "datom", derive(datom_codec::Datomizable, datom_codec::Composing))]
+pub enum EditRefusal {
+    NoSuchPlace(Place),
+    Mismatch(Mismatch_Data),
+}
+#[rustfmt::skip]
+pub trait Structural {
+    fn outline(&self, input: Depth) -> std::vec::Vec<Outline>;
+    fn code(&self, input: Place) -> std::vec::Vec<CodeBlock>;
+    fn references(&self, input: Place) -> std::vec::Vec<Reference>;
+    fn search(&self, input_0: Kind, input_1: Pattern) -> std::vec::Vec<Place>;
+    fn edit(&mut self, input: Edit) -> std::result::Result<Document, EditRefusal>;
+}
+#[rustfmt::skip]
+const _: () = {
+    fn assert_document_structural<T: Structural>() {}
+    let _ = assert_document_structural::<Document>;
+};

@@ -27,19 +27,19 @@ fn code_under_a_section() {
         text: words("Signal"),
     }];
     assert_eq!(
-        module().code(&place(&["The Belief Nexus", "Signal"])),
+        module().code(place(&["The Belief Nexus", "Signal"])),
         expected
     );
-    assert_eq!(module().code(&place(&[])).len(), 2);
-    assert_eq!(module().code(&place(&["Absent"])), vec![]);
+    assert_eq!(module().code(place(&[])).len(), 2);
+    assert_eq!(module().code(place(&["Absent"])), vec![]);
 }
 
 #[test]
 fn references_under_a_section() {
-    let all = module().references(&place(&["The Belief Nexus"]));
+    let all = module().references(place(&["The Belief Nexus"]));
     assert_eq!(all.len(), 2);
     assert_eq!(
-        module().references(&place(&["The Belief Nexus", "Memory"])),
+        module().references(place(&["The Belief Nexus", "Memory"])),
         vec![]
     );
 }
@@ -48,22 +48,22 @@ fn references_under_a_section() {
 fn search_over_one_kind() {
     let pattern = |text: &str| Pattern(text.to_string());
     assert_eq!(
-        module().search(Kind::Headings, &pattern("Signal")),
+        module().search(Kind::Headings, pattern("Signal")),
         vec![place(&["The Belief Nexus", "Signal"])]
     );
     assert_eq!(
-        module().search(Kind::Statements, &pattern("beliefs")),
+        module().search(Kind::Statements, pattern("beliefs")),
         vec![place(&["The Belief Nexus"])]
     );
     assert_eq!(
-        module().search(Kind::CodeBlocks, &pattern("memory")),
+        module().search(Kind::CodeBlocks, pattern("memory")),
         vec![place(&["The Belief Nexus", "Memory"])]
     );
     assert_eq!(
-        module().search(Kind::References, &pattern("#memory")),
+        module().search(Kind::References, pattern("#memory")),
         vec![place(&["The Belief Nexus", "Signal"])]
     );
-    assert_eq!(module().search(Kind::Headings, &pattern("Absent")), vec![]);
+    assert_eq!(module().search(Kind::Headings, pattern("Absent")), vec![]);
 }
 
 #[test]

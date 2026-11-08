@@ -1,0 +1,11 @@
+; The lane's own working types: the walk between Markdown and the Document, not part of the contract.
+Library
+[ sema:[ Depth Title Block Line ] ]          ; imports
+[ Piece.[ Heading.{ Depth Title Line }       ; types: a heading or a block, before headings nest into sections
+          Block.Block ]                      ;   written out: ethos-zero 21 gives a bare imported-type variant no payload
+  OpenSection.{ Depth Title Vector<Block> }  ;   a section still open while its heading's blocks are read
+  SourceLines.Vector<String>                 ;   the text as written, line by line, for what a refusal carries
+  FrontLines.{ SourceLines                   ;   the front matter's lines, and the closing delimiter's index
+               Close.Integer } ]
+[]                                           ; traits
+[]                                           ; associations
