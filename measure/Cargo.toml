@@ -1,0 +1,10 @@
+[package]
+name    = "sema-codec-measure"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+sema                   = { path = ".." }
+markdown               = "1.0.0"
+mdast_util_to_markdown = "0.0.2"
