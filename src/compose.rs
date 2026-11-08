@@ -12,7 +12,7 @@ use crate::reading::{
 };
 use crate::{
     Block, CodeBlock, Composable, Depth, Document, Line, Markdown, Problem, ProgrammingLanguage,
-    ReadRefusal, Reference, Row, Section, Target, Text, TextPart, Title,
+    ReadRefusal, Reference, Row, Section, Target, Text, TextPart, Title, Url,
 };
 
 impl Composable for Markdown {
@@ -130,7 +130,7 @@ impl<'a> Readable for &'a AstNode<'a> {
             NodeValue::Strong => TextPart::Strong(self.text()?),
             NodeValue::Link(link) if link.title.is_empty() => TextPart::Reference(Reference {
                 text: self.text()?,
-                target: Target::Url(link.url.clone()),
+                target: Target(Url(link.url.clone())),
             }),
             _ => return Err(self.line()),
         })

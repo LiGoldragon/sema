@@ -9,10 +9,9 @@ use comrak::nodes::{
 use comrak::{Arena, Options};
 
 use crate::reading::{
-    Anchorable, Bulleted, Configurable, Fenceable, Header, Parent, PrintStep, PrintTask, Row_Data,
-    Spellable,
+    Bulleted, Configurable, Fenceable, Header, Parent, PrintStep, PrintTask, Row_Data, Spellable,
 };
-use crate::{Block, Depth, Document, Markdown, Place, Printable, Target, Text, TextPart};
+use crate::{Block, Depth, Document, Markdown, Printable, Target, Text, TextPart, Url};
 
 impl Printable for Document {
     /// The tree is built step by step: a step appends its node under its
@@ -180,10 +179,8 @@ impl Printable for Document {
                                 Some((add(&parent, NodeValue::Strong), inner))
                             }
                             TextPart::Reference(reference) => {
-                                let url = match &reference.target {
-                                    Target::Url(url) => url.clone(),
-                                    Target::Place(place) => place.anchor(),
-                                };
+                                let Target(Url(url)) = &reference.target;
+                                let url = url.clone();
                                 let link = add(
                                     &parent,
                                     NodeValue::Link(Box::new(NodeLink {
@@ -236,16 +233,5 @@ impl Fenceable for Text {
                 TextPart::Reference(reference) => reference.text.verbatim(),
             })
             .collect()
-    }
-}
-
-impl Anchorable for Place {
-    /// UNIMPLEMENTED until designed (Fable ruling, inferred, pending the
-    /// living). A Markdown link target, anchors included, is read and printed
-    /// as `Target.Url`; a Place is never composed from Markdown, and the
-    /// conversion from a Place to an anchor is not designed, so printing one
-    /// stops here instead of guessing.
-    fn anchor(&self) -> String {
-        unimplemented!("Place-to-anchor conversion is not designed in Sema v0")
     }
 }

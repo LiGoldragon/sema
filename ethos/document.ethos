@@ -21,7 +21,8 @@ Library
              Reference ]                    ; a link
   CodeBlock.{ ProgrammingLanguage Text }   ; a fence: its programming language and its text
   Reference.{ Text Target }
-  Target.[ Place Url.String ]
+  Target.Url
+  Url.String                                ; the link target, as written
   Place.Vector<Text>                        ; the titles above a block, from the root
   Depth.Integer
   Outline.{ Title Vector<Outline> }

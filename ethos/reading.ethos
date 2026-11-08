@@ -44,7 +44,6 @@ Library
               spelled:{ [ String ] [ Option<Self> ] } ]     ;   both ways
   Bulleted.[ bullet:[ Self ] ]                              ;   a tight list marked -
   Fenceable.[ verbatim.[ String ] ]                         ;   the text as a fence holds it
-  Anchorable.[ anchor.[ String ] ]                          ;   a Place as a link target; undesigned
   Placeable.[ placed.[ Vector<PlacedBlock> ] ]              ;   every block with the titles above it, in reading order
   Relatable.[ under.{ [ Vector<Text> ] [ Boolean ] }       ;   a place below the titles given, or at them
               within.{ [ Vector<Text> ] [ Place ] } ]       ;   the place with the titles given appended
@@ -56,7 +55,7 @@ Library
 [ SourceLines.[ Quotable ]                                  ; associations: the lane's own types; comrak's and std's are asserted by their impls
   FrontLines.[ FrontMatterReadable ]
   Document.[ Placeable ]
-  Place.[ Relatable Anchorable ]
+  Place.[ Relatable ]
   Block.[ Textual ]
   Text.[ Searchable Fenceable ]
   ProgrammingLanguage.[ Spellable ]

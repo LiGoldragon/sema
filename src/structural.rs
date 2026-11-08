@@ -10,7 +10,7 @@ use crate::reading::{
 };
 use crate::{
     Block, CodeBlock, Depth, Document, Edit, EditRefusal, Expected, Found, Kind, Mismatch_Data,
-    Outline, Pattern, Place, Reference, Section, Structural, Target, Text, TextPart,
+    Outline, Pattern, Place, Reference, Section, Structural, Target, Text, TextPart, Url,
 };
 
 impl Structural for Document {
@@ -62,11 +62,8 @@ impl Structural for Document {
                         .into_iter()
                         .flat_map(|text| text.references())
                         .any(|reference| {
-                            let target = match &reference.target {
-                                Target::Url(url) => url.clone(),
-                                Target::Place(_) => String::new(),
-                            };
-                            holds(reference.text.plain()) || holds(target)
+                            let Target(Url(target)) = &reference.target;
+                            holds(reference.text.plain()) || holds(target.clone())
                         });
                     if found {
                         places.push(place);

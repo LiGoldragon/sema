@@ -1,6 +1,6 @@
 use sema::{
-    Block, CodeBlock, Composable, Document, Line, Markdown, Place, Printable, Problem,
-    ProgrammingLanguage, Reference, Section, Target, Text, TextPart, Title,
+    Block, CodeBlock, Composable, Document, Line, Markdown, Printable, Problem,
+    ProgrammingLanguage, Reference, Section, Target, Text, TextPart, Title, Url,
 };
 
 fn composed(text: &str) -> Document {
@@ -84,7 +84,7 @@ fn runs_are_typed() {
         TextPart::Words(" ".into()),
         TextPart::Reference(Reference {
             text: words("e"),
-            target: Target::Url("f".into()),
+            target: Target(Url("f".into())),
         }),
         TextPart::Words(" * g".into()),
     ]))]);
@@ -164,27 +164,19 @@ fn an_unclosed_fence_is_code_to_the_end() {
     assert_eq!(document, composed("Para.\n\n```rust\nfn x\n```\n"));
 }
 
-fn holding_a_place() -> Document {
-    Document(vec![Block::Statement(Text(vec![TextPart::Reference(
-        Reference {
-            text: words("see"),
-            target: Target::Place(Place(vec![words("The Belief Nexus"), words("Signal")])),
-        },
-    )]))])
-}
-
-/// The declared contract: print is total, so a Document holding a Place prints.
-/// FAILS in this prototype; ignored so the checks stay meaningful, and run with
-/// `cargo test -- --ignored` to see the violation.
+/// Every link target, an anchor among them, reads as Url and prints back as written.
 #[test]
-#[ignore = "prototype: print.[ Markdown ] is not total; Place-to-anchor conversion is not designed"]
-fn contract_print_is_total_for_a_place() {
-    let _ = holding_a_place().print();
-}
-
-/// The behavior as it is: printing a Place stops instead of producing Markdown.
-#[test]
-#[should_panic(expected = "Place-to-anchor conversion is not designed")]
-fn prototype_print_stops_at_a_place() {
-    let _ = holding_a_place().print();
+fn an_anchor_reads_as_url_and_prints_back() {
+    let source = "See [the signal](#signal).\n";
+    let document = composed(source);
+    let expected = Document(vec![Block::Statement(Text(vec![
+        TextPart::Words("See ".into()),
+        TextPart::Reference(Reference {
+            text: words("the signal"),
+            target: Target(Url("#signal".into())),
+        }),
+        TextPart::Words(".".into()),
+    ]))]);
+    assert_eq!(document, expected);
+    assert_eq!(document.print().0, source);
 }

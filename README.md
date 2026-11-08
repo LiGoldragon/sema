@@ -6,10 +6,6 @@ Vision source: `psyche-belief` revision `738727d23ec9e9cc6f37b018f428eee5c6cee05
 
 ## Status: prototype, incomplete
 
-- `print.[ Markdown ]` is declared total, and this implementation is not: a
-  Document holding a `Target.Place` stops with `unimplemented!`, because the
-  Place-to-anchor conversion is not designed. The contract test is kept,
-  ignored, in `tests/round_trip.rs`.
 - The Markdown codec is comrak 0.59.0, both ways (Fable order). comrak reads
   the text into its CommonMark tree, `src/compose.rs` walks that tree into the
   Document, and `src/print.rs` builds the tree from a Document for comrak to
@@ -29,8 +25,10 @@ Vision source: `psyche-belief` revision `738727d23ec9e9cc6f37b018f428eee5c6cee05
   pending the living).
 - Fence spellings are the tags the modules write: `ethos`, `datom`, `rust`,
   `nix`, `sh` (Shell), `ini`, `toml`, `mermaid`, and no tag for Plain.
-- Markdown link targets, anchors included, are read and printed as
-  `Target.Url` (Fable ruling, inferred, pending the living).
+- A Target is a Url and nothing else in version 0: every link target,
+  anchors included, is read and printed as the string written (Fable ruling,
+  edition 9). Place is the Sema address yielded by search and edit, and is
+  never read out of Markdown, so `print.[ Markdown ]` is total.
 - A whole module is a `ModuleText`, composed into `Module.{ FrontMatter Document }`
   and printed back into a `ModuleText` (`sema module <path>`; Fable rulings,
   inferred, pending the living). The front matter is read as the three
