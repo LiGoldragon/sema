@@ -1,6 +1,6 @@
 //! A whole module read and printed: the front matter first, then the body.
 //!
-//! The front matter is read as three YAML lines, each a field of Front, in any
+//! The front matter is read as three YAML lines, each a field of FrontMatter, in any
 //! order, and printed back canonically in the type's order. Any other line in
 //! it is refused as Unsupported, carrying that line.
 
@@ -8,7 +8,7 @@ use crate::compose::{Composable, Refusing};
 use crate::document::Markdown;
 use crate::error::{FrontField, Line, Problem, ReadRefusal};
 use crate::module::{
-    self, Dependencies, Description, Front, Module, ModuleName, ModuleText, Placement,
+    self, Dependencies, Description, FrontMatter, Module, ModuleName, ModuleText, Placement,
 };
 use crate::print::Printable;
 
@@ -35,17 +35,20 @@ impl module::Composable for ModuleText {
                 line: Line(1),
                 problem: Problem::UnclosedFence,
             })?;
-        let front = FrontLines {
+        let front_matter = FrontLines {
             source: &lines,
             close,
         }
-        .front()?;
+        .front_matter()?;
         let rest = Markdown(lines[close + 1..].join("\n"));
         let document = rest.compose().map_err(|refusal| ReadRefusal {
             line: Line(refusal.line.0 + close as i64 + 1),
             problem: refusal.problem,
         })?;
-        Ok(Module { front, document })
+        Ok(Module {
+            front_matter,
+            document,
+        })
     }
 }
 
@@ -56,14 +59,14 @@ struct FrontLines<'a> {
 }
 
 trait FrontReading {
-    fn front(&self) -> Result<Front, ReadRefusal>;
+    fn front_matter(&self) -> Result<FrontMatter, ReadRefusal>;
     fn refused(&self, index: usize) -> ReadRefusal;
     /// A field absent, refused at the closing delimiter, or empty, at its line.
     fn missing(&self, index: usize, field: FrontField) -> ReadRefusal;
 }
 
 impl FrontReading for FrontLines<'_> {
-    fn front(&self) -> Result<Front, ReadRefusal> {
+    fn front_matter(&self) -> Result<FrontMatter, ReadRefusal> {
         let mut description = None;
         let mut dependencies = None;
         let mut placement = None;
@@ -101,7 +104,7 @@ impl FrontReading for FrontLines<'_> {
             description.ok_or_else(|| self.missing(self.close, FrontField::Description))?;
         let dependencies =
             dependencies.ok_or_else(|| self.missing(self.close, FrontField::Dependencies))?;
-        Ok(Front {
+        Ok(FrontMatter {
             description,
             dependencies,
             placement_option: placement,
@@ -225,7 +228,7 @@ impl TryFrom<&str> for Placement {
 impl module::Printable for Module {
     fn print(&self) -> ModuleText {
         let names: Vec<&str> = self
-            .front
+            .front_matter
             .dependencies
             .0
             .iter()
@@ -233,10 +236,10 @@ impl module::Printable for Module {
             .collect();
         let mut out = format!(
             "{DELIMITER}\n{DESCRIPTION} {}\n{DEPENDENCIES}[{}]\n",
-            self.front.description.0.printed_description(),
+            self.front_matter.description.0.printed_description(),
             names.join(", ")
         );
-        if let Some(placement) = self.front.placement_option {
+        if let Some(placement) = self.front_matter.placement_option {
             out += &format!("{PLACEMENT}{}\n", placement.spelling());
         }
         out += DELIMITER;

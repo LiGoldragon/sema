@@ -19,10 +19,10 @@ Vision source: `psyche-belief` revision `738727d23ec9e9cc6f37b018f428eee5c6cee05
   `nix`, `sh` (Shell), `ini`, `toml`, `mermaid`, and no tag for Plain.
 - Markdown link targets, anchors included, are read and printed as
   `Target.Url` (Fable ruling, inferred, pending the living).
-- A whole module is a `ModuleText`, composed into `Module.{ Front Document }`
+- A whole module is a `ModuleText`, composed into `Module.{ FrontMatter Document }`
   and printed back into a `ModuleText` (`sema module <path>`; Fable rulings,
   inferred, pending the living). The front matter is read as the three
-  fields of Front, in any order, and printed canonically in the type's
+  fields of FrontMatter, in any order, and printed canonically in the type's
   order; the text after the closing delimiter line is handed to Markdown. A
   description may be plain, double-quoted or single-quoted, and prints plain
   when the plain form reads back the same, double-quoted otherwise. A

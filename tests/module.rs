@@ -1,7 +1,7 @@
 use sema::module::{Composable as _, Printable as _};
 use sema::{
-    Block, Composable, Dependencies, Description, Document, Front, FrontField, Line, Markdown,
-    Module, ModuleName, ModuleText, Placement, Problem, Run, Text,
+    Block, Composable, Dependencies, Description, Document, FrontField, FrontMatter, Line,
+    Markdown, Module, ModuleName, ModuleText, Placement, Problem, Run, Text,
 };
 
 fn module(text: &str) -> Result<Module, (Line, Problem)> {
@@ -19,7 +19,7 @@ const CANONICAL: &str = "---\ndescription: What it is: whole.\ndependencies: [vi
 #[test]
 fn a_module_reads_front_then_document() {
     let expected = Module {
-        front: Front {
+        front_matter: FrontMatter {
             description: Description("What it is: whole.".into()),
             dependencies: Dependencies(vec![
                 ModuleName("vision-sema".into()),
@@ -110,13 +110,16 @@ fn a_document_alone_still_refuses_front_matter() {
 #[test]
 fn a_quoted_description_prints_plain_when_plain_reads_back_the_same() {
     let read = module("---\ndescription: \"What it is\"\ndependencies: []\n---\n").expect("reads");
-    assert_eq!(read.front.description, Description("What it is".into()));
+    assert_eq!(
+        read.front_matter.description,
+        Description("What it is".into())
+    );
     assert_eq!(
         read.print().0,
         "---\ndescription: What it is\ndependencies: []\n---\n"
     );
     let single = module("---\ndescription: 'it''s'\ndependencies: []\n---\n").expect("reads");
-    assert_eq!(single.front.description, Description("it's".into()));
+    assert_eq!(single.front_matter.description, Description("it's".into()));
 }
 
 #[test]
@@ -132,7 +135,10 @@ fn a_description_that_plain_cannot_carry_prints_quoted() {
         ),
     ] {
         let read = module(text).expect("reads");
-        assert_eq!(read.front.description, Description(description.into()));
+        assert_eq!(
+            read.front_matter.description,
+            Description(description.into())
+        );
         assert_eq!(read.print().0, text);
         assert_eq!(module(&read.print().0), Ok(read));
     }

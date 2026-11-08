@@ -1,6 +1,6 @@
 use sema::{
-    Block, Code, Composable, Document, Language, Line, Markdown, Place, Printable, Problem,
-    Reference, Run, Section, Target, Text, Title,
+    Block, Code, Composable, Document, Line, Markdown, Place, Printable, Problem,
+    ProgrammingLanguage, Reference, Run, Section, Target, Text, Title,
 };
 
 fn composed(text: &str) -> Document {
@@ -89,7 +89,7 @@ fn runs_are_typed() {
 fn fence_holds_its_language() {
     let document = composed("```ethos\nLibrary\n[]\n```\n");
     let expected = Document(vec![Block::Code(Code {
-        language: Language::Ethos,
+        programming_language: ProgrammingLanguage::Ethos,
         text: words("Library\n[]"),
     })]);
     assert_eq!(document, expected);

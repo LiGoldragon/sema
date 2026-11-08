@@ -33,7 +33,7 @@ pub enum Block {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Code {
-    pub language: Language,
+    pub programming_language: ProgrammingLanguage,
     pub text: Text,
 }
 
@@ -41,7 +41,7 @@ pub struct Code {
 pub struct Row(pub Vec<Text>);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Language {
+pub enum ProgrammingLanguage {
     Ethos,
     Datom,
     Rust,

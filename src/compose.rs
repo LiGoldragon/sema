@@ -2,8 +2,8 @@
 //! printer writes, and refuses, with the line, what the Document cannot hold.
 
 use crate::document::{
-    Block, Code, Depth, Document, Language, Markdown, Reference, Row, Run, Section, Target, Text,
-    Title,
+    Block, Code, Depth, Document, Markdown, ProgrammingLanguage, Reference, Row, Run, Section,
+    Target, Text, Title,
 };
 use crate::error::{Line, Problem, ReadRefusal};
 
@@ -223,8 +223,8 @@ impl Reading for Region<'_> {
     }
 
     fn fence(&self, index: usize) -> Result<(Block, usize), ReadRefusal> {
-        let language =
-            Language::try_from(&self.lines[index][3..]).map_err(|_| self.refused(index))?;
+        let programming_language = ProgrammingLanguage::try_from(&self.lines[index][3..])
+            .map_err(|_| self.refused(index))?;
         let close = (index + 1..self.lines.len())
             .find(|candidate| self.lines[*candidate] == "```")
             .ok_or_else(|| self.unclosed(index))?;
@@ -233,7 +233,13 @@ impl Reading for Region<'_> {
             true => Text(Vec::new()),
             false => Text(vec![Run::Words(content.join("\n"))]),
         };
-        Ok((Block::Code(Code { language, text }), close + 1))
+        Ok((
+            Block::Code(Code {
+                programming_language,
+                text,
+            }),
+            close + 1,
+        ))
     }
 
     fn paragraph(&self, index: usize) -> Result<(Block, usize), ReadRefusal> {

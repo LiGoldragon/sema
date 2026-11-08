@@ -3,7 +3,7 @@
 
 use crate::compose::ESCAPABLE;
 use crate::document::{Block, Depth, Document, Markdown, Place, Row, Run, Target, Text};
-use crate::language::Spelled;
+use crate::programming_language::Spelled;
 
 pub trait Printable {
     fn print(&self) -> Markdown;
@@ -53,10 +53,10 @@ impl BlockRendering for Block {
                 out
             }
             Block::Code(code) => match code.text.0.is_empty() {
-                true => format!("```{}\n```", code.language.spelling()),
+                true => format!("```{}\n```", code.programming_language.spelling()),
                 false => format!(
                     "```{}\n{}\n```",
-                    code.language.spelling(),
+                    code.programming_language.spelling(),
                     code.text.verbatim()
                 ),
             },

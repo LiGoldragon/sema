@@ -21,7 +21,7 @@ pub enum Placement {
 
 /// The front matter, typed; field order is print order.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Front {
+pub struct FrontMatter {
     pub description: Description,
     pub dependencies: Dependencies,
     pub placement_option: Option<Placement>,
@@ -36,7 +36,7 @@ pub struct Dependencies(pub Vec<ModuleName>);
 /// A belief module: its front matter, then its body.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Module {
-    pub front: Front,
+    pub front_matter: FrontMatter,
     pub document: Document,
 }
 
