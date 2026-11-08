@@ -1,6 +1,6 @@
 use sema::{
     Block, Code_Data, Composable, Construct, Delimiter, Depth, Document, Language, Line, Markdown,
-    Printable, Problem, Reference_Data, Run, Section, Target, Text, Title,
+    Place, Printable, Problem, Reference_Data, Run, Section, Target, Text, Title,
 };
 
 fn composed(text: &str) -> Document {
@@ -153,4 +153,29 @@ fn anchors_read_as_url() {
     )]))]);
     assert_eq!(document, expected);
     round_trips("[see](#the-belief-nexus)\n");
+}
+
+fn holding_a_place() -> Document {
+    Document(vec![Block::Statement(Text(vec![Run::Reference(
+        Reference_Data {
+            text: words("see"),
+            target: Target::Place(Place(vec![words("The Belief Nexus"), words("Signal")])),
+        },
+    )]))])
+}
+
+/// The declared contract: print is total, so a Document holding a Place prints.
+/// FAILS in this prototype; ignored so the checks stay meaningful, and run with
+/// `cargo test -- --ignored` to see the violation.
+#[test]
+#[ignore = "prototype: print.[ Markdown ] is not total; Place-to-anchor conversion is not designed"]
+fn contract_print_is_total_for_a_place() {
+    let _ = holding_a_place().print();
+}
+
+/// The behavior as it is: printing a Place stops instead of producing Markdown.
+#[test]
+#[should_panic(expected = "Place-to-anchor conversion is not designed")]
+fn prototype_print_stops_at_a_place() {
+    let _ = holding_a_place().print();
 }
