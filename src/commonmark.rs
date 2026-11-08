@@ -4,11 +4,9 @@
 use comrak::Options;
 use comrak::options::ListStyleType;
 
-pub(crate) trait Configured {
-    fn sema() -> Self;
-}
+use crate::reading::Configurable;
 
-impl Configured for Options<'static> {
+impl Configurable for Options<'static> {
     fn sema() -> Self {
         let mut options = Options::default();
         options.extension.table = true;

@@ -1,14 +1,11 @@
 //! The one place a ProgrammingLanguage meets its spelling in a fence's info string.
 
 use crate::ProgrammingLanguage;
+use crate::reading::Spellable;
 
-pub(crate) trait Spelled {
-    fn spelling(&self) -> &'static str;
-}
-
-impl Spelled for ProgrammingLanguage {
-    fn spelling(&self) -> &'static str {
-        match self {
+impl Spellable for ProgrammingLanguage {
+    fn spelling(&self) -> String {
+        let spelling = match self {
             ProgrammingLanguage::Ethos => "ethos",
             ProgrammingLanguage::Datom => "datom",
             ProgrammingLanguage::Rust => "rust",
@@ -18,14 +15,11 @@ impl Spelled for ProgrammingLanguage {
             ProgrammingLanguage::Toml => "toml",
             ProgrammingLanguage::Mermaid => "mermaid",
             ProgrammingLanguage::Plain => "",
-        }
+        };
+        spelling.to_string()
     }
-}
 
-impl TryFrom<&str> for ProgrammingLanguage {
-    type Error = String;
-
-    fn try_from(spelling: &str) -> Result<Self, String> {
+    fn spelled(spelling: String) -> Option<Self> {
         [
             ProgrammingLanguage::Ethos,
             ProgrammingLanguage::Datom,
@@ -39,6 +33,5 @@ impl TryFrom<&str> for ProgrammingLanguage {
         ]
         .into_iter()
         .find(|programming_language| programming_language.spelling() == spelling)
-        .ok_or_else(|| spelling.to_string())
     }
 }

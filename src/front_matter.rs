@@ -6,9 +6,11 @@
 //! as a flow sequence. Any other line in it is refused as Unsupported,
 //! carrying that line.
 
-use crate::compose::Refusing;
 use crate::module;
-use crate::reading::{Close, FrontLines, SourceLines};
+use crate::reading::{
+    Close, FrontLines, FrontMatterReadable, Index, MissingField, Quotable, ScalarReadable,
+    SourceLines, Spellable,
+};
 use crate::{
     Composable, Dependencies, Description, FrontMatter, FrontMatterField, Line, Markdown, Module,
     ModuleName, ModuleText, Placement, Printable, Problem, ReadRefusal,
@@ -31,11 +33,11 @@ impl module::Composable for ModuleText {
     fn compose(&self) -> Result<Module, ReadRefusal> {
         let lines: Vec<String> = self.0.split('\n').map(str::to_string).collect();
         if lines.first().map(String::as_str) != Some(DELIMITER) {
-            return Err(Line(1).refusal(&lines));
+            return Err(SourceLines(lines.clone()).quote(1));
         }
         let close = (1..lines.len())
             .find(|index| lines[*index] == DELIMITER)
-            .ok_or_else(|| Line(1).refusal(&lines))?;
+            .ok_or_else(|| SourceLines(lines.clone()).quote(1))?;
         let front_matter = FrontLines {
             source_lines: SourceLines(lines.clone()),
             close: Close(close as i64),
@@ -53,14 +55,7 @@ impl module::Composable for ModuleText {
     }
 }
 
-trait FrontReading {
-    fn front_matter(&self) -> Result<FrontMatter, ReadRefusal>;
-    fn refused(&self, index: usize) -> ReadRefusal;
-    /// A field absent, refused at the closing delimiter, or empty, at its line.
-    fn missing(&self, index: usize, field: FrontMatterField) -> ReadRefusal;
-}
-
-impl FrontReading for FrontLines {
+impl FrontMatterReadable for FrontLines {
     fn front_matter(&self) -> Result<FrontMatter, ReadRefusal> {
         let source = &self.source_lines.0;
         let close = self.close.0 as usize;
@@ -79,11 +74,16 @@ impl FrontReading for FrontLines {
                     let value = match value.strip_prefix(' ') {
                         Some(value) => value,
                         None if value.is_empty() => value,
-                        None => return Err(self.refused(index)),
+                        None => return Err(self.refused(index as i64)),
                     };
-                    let read = value.description().ok_or_else(|| self.refused(index))?;
+                    let read = value
+                        .description()
+                        .ok_or_else(|| self.refused(index as i64))?;
                     if read.is_empty() {
-                        return Err(self.missing(index, FrontMatterField::Description));
+                        return Err(self.missing(MissingField {
+                            index: Index(index as i64),
+                            front_matter_field: FrontMatterField::Description,
+                        }));
                     }
                     description = Some(Description(read));
                 }
@@ -93,34 +93,48 @@ impl FrontReading for FrontLines {
                         let Some(entry) = source[index + 1].trim_start().strip_prefix(ENTRY) else {
                             break;
                         };
-                        let name = entry.name().ok_or_else(|| self.refused(index + 1))?;
+                        let name = entry
+                            .name()
+                            .ok_or_else(|| self.refused((index + 1) as i64))?;
                         names.push(name);
                         index += 1;
                     }
                     if names.is_empty() {
-                        return Err(self.missing(index, FrontMatterField::Dependencies));
+                        return Err(self.missing(MissingField {
+                            index: Index(index as i64),
+                            front_matter_field: FrontMatterField::Dependencies,
+                        }));
                     }
                     dependencies = Some(Dependencies(names));
                 }
                 (_, Some(value), _) if dependencies.is_none() => {
                     let names = value
                         .strip_prefix(' ')
-                        .and_then(Scalar::names)
-                        .ok_or_else(|| self.refused(index))?;
+                        .and_then(ScalarReadable::names)
+                        .ok_or_else(|| self.refused(index as i64))?;
                     dependencies = Some(Dependencies(names));
                 }
                 (_, _, Some(value)) if placement.is_none() => {
-                    let read = Placement::try_from(value).map_err(|_| self.refused(index))?;
+                    let read = Placement::spelled(value.to_string())
+                        .ok_or_else(|| self.refused(index as i64))?;
                     placement = Some(read);
                 }
-                _ => return Err(self.refused(index)),
+                _ => return Err(self.refused(index as i64)),
             }
             index += 1;
         }
-        let description =
-            description.ok_or_else(|| self.missing(close, FrontMatterField::Description))?;
-        let dependencies =
-            dependencies.ok_or_else(|| self.missing(close, FrontMatterField::Dependencies))?;
+        let description = description.ok_or_else(|| {
+            self.missing(MissingField {
+                index: Index(close as i64),
+                front_matter_field: FrontMatterField::Description,
+            })
+        })?;
+        let dependencies = dependencies.ok_or_else(|| {
+            self.missing(MissingField {
+                index: Index(close as i64),
+                front_matter_field: FrontMatterField::Dependencies,
+            })
+        })?;
         Ok(FrontMatter {
             description,
             dependencies,
@@ -128,37 +142,21 @@ impl FrontReading for FrontLines {
         })
     }
 
-    fn refused(&self, index: usize) -> ReadRefusal {
-        Line(index as i64 + 1).refusal(&self.source_lines.0)
+    fn refused(&self, index: i64) -> ReadRefusal {
+        self.source_lines.quote(index + 1)
     }
 
-    fn missing(&self, index: usize, field: FrontMatterField) -> ReadRefusal {
+    /// A field absent, refused at the closing delimiter, or empty, at its line.
+    fn missing(&self, missing: MissingField) -> ReadRefusal {
         ReadRefusal {
-            line: Line(index as i64 + 1),
-            problem: Problem::Missing(field),
+            line: Line(missing.index.0 + 1),
+            problem: Problem::Missing(missing.front_matter_field),
         }
     }
 }
 
 /// A YAML value read only in the plain forms the printer writes.
-trait Scalar {
-    /// A plain scalar on one line: not empty, not quoted, not a block or flow
-    /// opener, and so the string as written.
-    fn plain_scalar(&self) -> bool;
-    /// A description as written: plain, double-quoted with `\\` and `\"`
-    /// escaped, or single-quoted with `''` for a quote; None when malformed.
-    fn description(&self) -> Option<String>;
-    /// The description as printed: plain when the plain form reads back the
-    /// same, double-quoted otherwise.
-    fn printed_description(&self) -> String;
-    /// A flow sequence of plain names, `[]` or `[a, b]`.
-    fn names(&self) -> Option<Vec<ModuleName>>;
-    /// A module name as written: a plain scalar that also stands in a flow
-    /// sequence, `vision-sema` or `intent:energy`.
-    fn name(&self) -> Option<ModuleName>;
-}
-
-impl Scalar for str {
+impl ScalarReadable for str {
     fn plain_scalar(&self) -> bool {
         !self.is_empty()
             && !self.starts_with([
@@ -206,7 +204,7 @@ impl Scalar for str {
         let inner = self.strip_prefix('[')?.strip_suffix(']')?;
         match inner.is_empty() {
             true => Some(Vec::new()),
-            false => inner.split(", ").map(Scalar::name).collect(),
+            false => inner.split(", ").map(ScalarReadable::name).collect(),
         }
     }
 
@@ -218,27 +216,19 @@ impl Scalar for str {
 }
 
 /// The one place a Placement meets its YAML spelling.
-pub(crate) trait PlacementSpelled {
-    fn spelling(&self) -> &'static str;
-}
-
-impl PlacementSpelled for Placement {
-    fn spelling(&self) -> &'static str {
-        match self {
+impl Spellable for Placement {
+    fn spelling(&self) -> String {
+        let spelling = match self {
             Placement::SystemPrompt => "system",
             Placement::Skill => "skill",
-        }
+        };
+        spelling.to_string()
     }
-}
 
-impl TryFrom<&str> for Placement {
-    type Error = String;
-
-    fn try_from(spelling: &str) -> Result<Self, String> {
+    fn spelled(spelling: String) -> Option<Self> {
         [Placement::SystemPrompt, Placement::Skill]
             .into_iter()
             .find(|placement| placement.spelling() == spelling)
-            .ok_or_else(|| spelling.to_string())
     }
 }
 

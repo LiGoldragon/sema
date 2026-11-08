@@ -1,11 +1,64 @@
-; The lane's own working types: the walk between Markdown and the Document, not part of the contract.
+; The lane's own working types and traits: the walk between Markdown and the Document, not part of the contract.
+; Every trait the lane's bodies implement is declared here; comrak's types bear them, and no comrak type is in a signature.
 Library
-[ sema:[ Depth Title Block Line ] ]          ; imports
+[ sema:[ Depth Title Block Line Text TextPart Reference Place Outline Edit EditRefusal  ; imports: the contract's types
+         ReadRefusal FrontMatter FrontMatterField ModuleName Document ProgrammingLanguage Placement ] ]
 [ Piece.[ Heading.{ Depth Title Line }       ; types: a heading or a block, before headings nest into sections
-          Block.Block ]                      ;   written out: ethos-zero 21 gives a bare imported-type variant no payload
+          Block ]
+  Pieces.Vector<Piece>                       ;   the pieces of a container, in reading order
   OpenSection.{ Depth Title Vector<Block> }  ;   a section still open while its heading's blocks are read
   SourceLines.Vector<String>                 ;   the text as written, line by line, for what a refusal carries
   FrontLines.{ SourceLines                   ;   the front matter's lines, and the closing delimiter's index
-               Close.Integer } ]
-[]                                           ; traits
-[]                                           ; associations
+               Close.Integer }
+  MissingField.{ Index.Integer               ;   a front-matter field missing, at a line by its index
+                 FrontMatterField }
+  PlacedBlock.{ Place Block }                ;   a block of the document, with the titles above it
+  PendingEdit.{ Edit                         ;   an edit, and the titles of its place still to descend
+                Remaining.Vector<Text> }
+  PrintTask.{ Parent.Integer                 ;   one step of the print: what is appended under which built node
+              PrintStep
+              Depth }
+  PrintStep.[ Block                          ;   a block, or the inside of a paragraph, a heading, a cell or a link
+              Text
+              Row.{ Vector<Text> Header.Boolean } ] ]
+[ Readable.[ pieces.[ Result<Vector<Piece> Line> ]           ; traits: a comrak node read into the Document; a refusal is the line
+             piece.[ Result<Piece Line> ]
+             contained.[ Result<Vector<Block> Line> ]       ;   the blocks of a list item or a quote, where a heading has no place
+             list.[ Result<Block Line> ]                     ;   a list item holds one block
+             table.[ Result<Block Line> ]
+             text.[ Result<Text Line> ]                      ;   the inside of a paragraph, a heading or a cell
+             text_part.[ Result<TextPart Line> ]
+             line.[ Line ] ]
+  Nestable.[ nested.[ Result<Vector<Block> Line> ] ]        ;   pieces nested into sections by their headings' depth
+  Quotable.[ quote.{ [ Integer ] [ ReadRefusal ] } ]        ;   the source refuses at a line, carrying it as written
+  Configurable.[ sema:[ Self ] ]                            ;   comrak's options, the same both ways
+  FrontMatterReadable.[ front_matter.[ Result<FrontMatter ReadRefusal> ]
+                        refused.{ [ Integer ] [ ReadRefusal ] }   ;   a line by its index
+                        missing.{ [ MissingField ] [ ReadRefusal ] } ]
+  ScalarReadable.[ plain_scalar.[ Boolean ]                 ;   a YAML value, in the forms the printer writes
+                   description.[ Option<String> ]
+                   printed_description.[ String ]
+                   names.[ Option<Vector<ModuleName>> ]
+                   name.[ Option<ModuleName> ] ]
+  Spellable.[ spelling.[ String ]                           ;   the one place a variant meets its written spelling,
+              spelled:{ [ String ] [ Option<Self> ] } ]     ;   both ways
+  Bulleted.[ bullet:[ Self ] ]                              ;   a tight list marked -
+  Fenceable.[ verbatim.[ String ] ]                         ;   the text as a fence holds it
+  Anchorable.[ anchor.[ String ] ]                          ;   a Place as a link target; undesigned
+  Placeable.[ placed.[ Vector<PlacedBlock> ] ]              ;   every block with the titles above it, in reading order
+  Relatable.[ under.{ [ Vector<Text> ] [ Boolean ] }       ;   a place below the titles given, or at them
+              within.{ [ Vector<Text> ] [ Place ] } ]       ;   the place with the titles given appended
+  Textual.[ own_texts.[ Vector<Text> ] ]                    ;   the texts a block holds itself
+  Searchable.[ plain.[ String ]
+               references.[ Vector<Reference> ] ]
+  Outlinable.[ outlined.{ [ Integer ] [ Vector<Outline> ] } ] ;   the sections among blocks, to a depth
+  Editable.[ apply!{ [ PendingEdit ] [ Option<EditRefusal> ] } ] ] ; blocks edited below the rest of a place; None when done
+[ SourceLines.[ Quotable ]                                  ; associations: the lane's own types; comrak's and std's are asserted by their impls
+  FrontLines.[ FrontMatterReadable ]
+  Document.[ Placeable ]
+  Place.[ Relatable Anchorable ]
+  Block.[ Textual ]
+  Text.[ Searchable Fenceable ]
+  ProgrammingLanguage.[ Spellable ]
+  Placement.[ Spellable ]
+  Pieces.[ Nestable ] ]

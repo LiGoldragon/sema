@@ -97,3 +97,101 @@ fn outline_is_one_per_top_level_section() {
         vec![outline("A", vec![]), outline("B", vec![])]
     );
 }
+
+fn read(text: &str) -> Document {
+    Markdown(text.to_string()).compose().expect("composes")
+}
+
+fn section(text: &str) -> sema::Block {
+    read(text).0.remove(0)
+}
+
+#[test]
+fn edits_land_at_the_place() {
+    use sema::{Block, Edit, Insert_Data, New, Old, Remove_Data, Replace_Data};
+    let mut document = module();
+    let inserted = document
+        .edit(Edit::Insert(Insert_Data {
+            place: place(&["The Belief Nexus", "Memory"]),
+            block: Block::Statement(words("Kept.")),
+        }))
+        .expect("an insert at a section lands");
+    assert_eq!(inserted, document);
+    assert!(
+        sema::Printable::print(&document)
+            .0
+            .ends_with("let memory = 1;\n```\n\nKept.\n")
+    );
+
+    let mut document = read("# A\n\nOne.\n\n# B\n\nTwo.\n");
+    let replaced = document
+        .edit(Edit::Replace(Replace_Data {
+            place: place(&["B"]),
+            old: Old(section("# B\n\nTwo.\n")),
+            new: New(section("# C\n\nThree.\n")),
+        }))
+        .expect("a replace of the expected block lands");
+    assert_eq!(replaced, read("# A\n\nOne.\n\n# C\n\nThree.\n"));
+
+    let removed = document
+        .edit(Edit::Remove(Remove_Data {
+            place: place(&["A"]),
+            block: section("# A\n\nOne.\n"),
+        }))
+        .expect("a remove of the expected block lands");
+    assert_eq!(removed, read("# C\n\nThree.\n"));
+
+    let mut root = read("One.\n");
+    root.edit(Edit::Insert(Insert_Data {
+        place: place(&[]),
+        block: Block::Statement(words("Two.")),
+    }))
+    .expect("an insert at the root lands");
+    assert_eq!(root, read("One.\n\nTwo.\n"));
+}
+
+#[test]
+fn an_edit_at_a_place_with_no_block_is_no_such_place() {
+    use sema::{Block, Edit, EditRefusal, Insert_Data, Remove_Data};
+    let mut document = module();
+    let before = document.clone();
+    for (edit, at) in [
+        (
+            Edit::Insert(Insert_Data {
+                place: place(&["The Belief Nexus", "Absent"]),
+                block: Block::Statement(words("x")),
+            }),
+            place(&["The Belief Nexus", "Absent"]),
+        ),
+        (
+            Edit::Remove(Remove_Data {
+                place: place(&[]),
+                block: Block::Statement(words("x")),
+            }),
+            place(&[]),
+        ),
+    ] {
+        assert_eq!(document.edit(edit), Err(EditRefusal::NoSuchPlace(at)));
+    }
+    assert_eq!(document, before);
+}
+
+#[test]
+fn an_edit_expecting_another_block_is_a_mismatch_naming_the_found_one() {
+    use sema::{Edit, EditRefusal, Expected, Found, Mismatch_Data, New, Old, Replace_Data};
+    let mut document = read("# A\n\nOne.\n");
+    let before = document.clone();
+    assert_eq!(
+        document.edit(Edit::Replace(Replace_Data {
+            place: place(&["A"]),
+            old: Old(section("# A\n\nOther.\n")),
+            new: New(section("# A\n\nNew.\n")),
+        })),
+        Err(EditRefusal::Mismatch(Mismatch_Data {
+            place: place(&["A"]),
+            expected: Expected(section("# A\n\nOther.\n")),
+            found: Found(section("# A\n\nOne.\n")),
+        }))
+    );
+    assert_eq!(document, before);
+}
