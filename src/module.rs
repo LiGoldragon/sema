@@ -2,6 +2,11 @@
 //! then its body (ruled by Psyche core Fable, inferred, pending the living).
 
 use crate::document::Document;
+use crate::error::ReadRefusal;
+
+/// The text, front matter then Markdown, as it is written.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModuleText(pub String);
 
 /// A module's name, kind-subject, as written in the YAML: vision-sema.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,4 +38,14 @@ pub struct Dependencies(pub Vec<ModuleName>);
 pub struct Module {
     pub front: Front,
     pub document: Document,
+}
+
+/// A module text composes into a Module.
+pub trait Composable {
+    fn compose(&self) -> Result<Module, ReadRefusal>;
+}
+
+/// A Module prints into a module text.
+pub trait Printable {
+    fn print(&self) -> ModuleText;
 }

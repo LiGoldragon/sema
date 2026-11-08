@@ -6,7 +6,8 @@
 //! sema body <path>       a test harness: the text after the front matter's
 //!                        closing delimiter line, read as a Document
 
-use sema::{Composable, Markdown, ModuleComposable, Printable};
+use sema::module::{Composable as _, Printable as _};
+use sema::{Composable, Markdown, ModuleText, Printable};
 use std::fmt::Debug;
 use std::process::ExitCode;
 
@@ -25,12 +26,18 @@ fn main() -> ExitCode {
     println!("file: {path}, {} bytes", whole.len());
     let markdown = Markdown(whole.clone());
     match mode.as_str() {
-        "module" => report(&whole, markdown.compose_module(), |text| {
-            Markdown(text.to_string()).compose_module()
-        }),
-        "document" => report(&whole, markdown.compose(), |text| {
-            Markdown(text.to_string()).compose()
-        }),
+        "module" => report(
+            &whole,
+            ModuleText(whole.clone()).compose(),
+            |module| module.print().0,
+            |text| ModuleText(text.to_string()).compose(),
+        ),
+        "document" => report(
+            &whole,
+            markdown.compose(),
+            |document| document.print().0,
+            |text| Markdown(text.to_string()).compose(),
+        ),
         "body" => {
             let body = whole
                 .strip_prefix("---\n")
@@ -41,9 +48,12 @@ fn main() -> ExitCode {
                 whole.len() - body.len(),
                 body.len()
             );
-            report(body, Markdown(body.to_string()).compose(), |text| {
-                Markdown(text.to_string()).compose()
-            })
+            report(
+                body,
+                Markdown(body.to_string()).compose(),
+                |document| document.print().0,
+                |text| Markdown(text.to_string()).compose(),
+            )
         }
         _ => usage(),
     }
@@ -54,9 +64,10 @@ fn usage() -> ExitCode {
     ExitCode::from(2)
 }
 
-fn report<T: Debug + PartialEq + Printable, E: std::fmt::Display>(
+fn report<T: Debug + PartialEq, E: std::fmt::Display>(
     source: &str,
     read: Result<T, E>,
+    print: impl Fn(&T) -> String,
     again: impl Fn(&str) -> Result<T, E>,
 ) -> ExitCode {
     let tree = match read {
@@ -67,7 +78,7 @@ fn report<T: Debug + PartialEq + Printable, E: std::fmt::Display>(
         }
     };
     println!("--- tree\n{tree:#?}");
-    let printed = tree.print().0;
+    let printed = print(&tree);
     println!("--- printed Markdown\n{printed}");
     println!("--- comparison");
     println!(

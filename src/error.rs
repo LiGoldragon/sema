@@ -17,6 +17,14 @@ pub enum Problem {
     UnclosedFence,
     /// The construct as written: the line it stands on.
     Unsupported(String),
+    /// A front-matter field absent, or empty.
+    Missing(FrontField),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FrontField {
+    Description,
+    Dependencies,
 }
 
 impl std::fmt::Display for ReadRefusal {
@@ -26,6 +34,7 @@ impl std::fmt::Display for ReadRefusal {
             Problem::Unsupported(written) => {
                 write!(formatter, "line {}: Unsupported «{written}»", self.line.0)
             }
+            Problem::Missing(field) => write!(formatter, "line {}: Missing {field:?}", self.line.0),
         }
     }
 }

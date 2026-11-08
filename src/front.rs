@@ -4,27 +4,27 @@
 //! order, and printed back canonically in the type's order. Any other line in
 //! it is refused as Unsupported, carrying that line.
 
-use crate::compose::{Reading, Refusing, Region};
-use crate::document::{Document, Markdown};
-use crate::error::{Line, Problem, ReadRefusal};
-use crate::module::{Dependencies, Description, Front, Module, ModuleName, Placement};
+use crate::compose::{Composable, Refusing};
+use crate::document::Markdown;
+use crate::error::{FrontField, Line, Problem, ReadRefusal};
+use crate::module::{
+    self, Dependencies, Description, Front, Module, ModuleName, ModuleText, Placement,
+};
 use crate::print::Printable;
 
 /// The front-matter delimiter line.
 const DELIMITER: &str = "---";
 
 /// The one place a field meets its YAML key.
-const DESCRIPTION: &str = "description: ";
+const DESCRIPTION: &str = "description:";
 const DEPENDENCIES: &str = "dependencies: ";
 const PLACEMENT: &str = "placement: ";
 
-/// Markdown read as a whole module: front matter, then the body.
-pub trait ModuleComposable {
-    fn compose_module(&self) -> Result<Module, ReadRefusal>;
-}
-
-impl ModuleComposable for Markdown {
-    fn compose_module(&self) -> Result<Module, ReadRefusal> {
+impl module::Composable for ModuleText {
+    /// The front matter is composed here; the text after its closing
+    /// delimiter line is handed to Markdown, and a refusal there is counted
+    /// from the start of the module text.
+    fn compose(&self) -> Result<Module, ReadRefusal> {
         let lines: Vec<String> = self.0.split('\n').map(str::to_string).collect();
         if lines.first().map(String::as_str) != Some(DELIMITER) {
             return Err(Line(1).refusal(&lines));
@@ -40,15 +40,12 @@ impl ModuleComposable for Markdown {
             close,
         }
         .front()?;
-        let body = Region {
-            lines: lines[close + 1..].to_vec(),
-            first: Line(close as i64 + 2),
-            source: &lines,
-        };
-        Ok(Module {
-            front,
-            document: Document(body.blocks()?),
-        })
+        let rest = Markdown(lines[close + 1..].join("\n"));
+        let document = rest.compose().map_err(|refusal| ReadRefusal {
+            line: Line(refusal.line.0 + close as i64 + 1),
+            problem: refusal.problem,
+        })?;
+        Ok(Module { front, document })
     }
 }
 
@@ -61,6 +58,8 @@ struct FrontLines<'a> {
 trait FrontReading {
     fn front(&self) -> Result<Front, ReadRefusal>;
     fn refused(&self, index: usize) -> ReadRefusal;
+    /// A field absent, refused at the closing delimiter, or empty, at its line.
+    fn missing(&self, index: usize, field: FrontField) -> ReadRefusal;
 }
 
 impl FrontReading for FrontLines<'_> {
@@ -75,8 +74,17 @@ impl FrontReading for FrontLines<'_> {
                 line.strip_prefix(DEPENDENCIES),
                 line.strip_prefix(PLACEMENT),
             ) {
-                (Some(value), _, _) if description.is_none() && value.plain_scalar() => {
-                    description = Some(Description(value.to_string()));
+                (Some(value), _, _) if description.is_none() => {
+                    let value = match value.strip_prefix(' ') {
+                        Some(value) => value,
+                        None if value.is_empty() => value,
+                        None => return Err(self.refused(index)),
+                    };
+                    let read = value.description().ok_or_else(|| self.refused(index))?;
+                    if read.is_empty() {
+                        return Err(self.missing(index, FrontField::Description));
+                    }
+                    description = Some(Description(read));
                 }
                 (_, Some(value), _) if dependencies.is_none() => {
                     let names = value.names().ok_or_else(|| self.refused(index))?;
@@ -89,18 +97,26 @@ impl FrontReading for FrontLines<'_> {
                 _ => return Err(self.refused(index)),
             }
         }
-        match (description, dependencies) {
-            (Some(description), Some(dependencies)) => Ok(Front {
-                description,
-                dependencies,
-                placement_option: placement,
-            }),
-            _ => Err(self.refused(self.close)),
-        }
+        let description =
+            description.ok_or_else(|| self.missing(self.close, FrontField::Description))?;
+        let dependencies =
+            dependencies.ok_or_else(|| self.missing(self.close, FrontField::Dependencies))?;
+        Ok(Front {
+            description,
+            dependencies,
+            placement_option: placement,
+        })
     }
 
     fn refused(&self, index: usize) -> ReadRefusal {
         Line(index as i64 + 1).refusal(self.source)
+    }
+
+    fn missing(&self, index: usize, field: FrontField) -> ReadRefusal {
+        ReadRefusal {
+            line: Line(index as i64 + 1),
+            problem: Problem::Missing(field),
+        }
     }
 }
 
@@ -109,6 +125,12 @@ trait Scalar {
     /// A plain scalar on one line: not empty, not quoted, not a block or flow
     /// opener, and so the string as written.
     fn plain_scalar(&self) -> bool;
+    /// A description as written: plain, double-quoted with `\\` and `\"`
+    /// escaped, or single-quoted with `''` for a quote; None when malformed.
+    fn description(&self) -> Option<String>;
+    /// The description as printed: plain when the plain form reads back the
+    /// same, double-quoted otherwise.
+    fn printed_description(&self) -> String;
     /// A flow sequence of plain names, `[]` or `[a, b]`.
     fn names(&self) -> Option<Vec<ModuleName>>;
 }
@@ -121,6 +143,40 @@ impl Scalar for str {
             ])
             && self.trim_end() == self
             && !self.contains(" #")
+    }
+
+    fn description(&self) -> Option<String> {
+        if let Some(inner) = self.strip_prefix('"') {
+            let inner = inner.strip_suffix('"')?;
+            let mut out = String::new();
+            let mut characters = inner.chars();
+            while let Some(character) = characters.next() {
+                match character {
+                    '\\' => match characters.next()? {
+                        escaped @ ('\\' | '"') => out.push(escaped),
+                        _ => return None,
+                    },
+                    '"' => return None,
+                    other => out.push(other),
+                }
+            }
+            Some(out)
+        } else if let Some(inner) = self.strip_prefix('\'') {
+            let inner = inner.strip_suffix('\'')?;
+            let doubled = inner.replace("''", "");
+            (!doubled.contains('\'')).then(|| inner.replace("''", "'"))
+        } else if self.is_empty() || self.plain_scalar() {
+            Some(self.to_string())
+        } else {
+            None
+        }
+    }
+
+    fn printed_description(&self) -> String {
+        match self.plain_scalar() {
+            true => self.to_string(),
+            false => format!("\"{}\"", self.replace('\\', "\\\\").replace('"', "\\\"")),
+        }
     }
 
     fn names(&self) -> Option<Vec<ModuleName>> {
@@ -166,8 +222,8 @@ impl TryFrom<&str> for Placement {
     }
 }
 
-impl Printable for Module {
-    fn print(&self) -> Markdown {
+impl module::Printable for Module {
+    fn print(&self) -> ModuleText {
         let names: Vec<&str> = self
             .front
             .dependencies
@@ -176,8 +232,8 @@ impl Printable for Module {
             .map(|name| name.0.as_str())
             .collect();
         let mut out = format!(
-            "{DELIMITER}\n{DESCRIPTION}{}\n{DEPENDENCIES}[{}]\n",
-            self.front.description.0,
+            "{DELIMITER}\n{DESCRIPTION} {}\n{DEPENDENCIES}[{}]\n",
+            self.front.description.0.printed_description(),
             names.join(", ")
         );
         if let Some(placement) = self.front.placement_option {
@@ -190,6 +246,6 @@ impl Printable for Module {
             out += "\n";
             out += &body.0;
         }
-        Markdown(out)
+        ModuleText(out)
     }
 }

@@ -1,11 +1,12 @@
+use sema::module::{Composable as _, Printable as _};
 use sema::{
-    Block, Composable, Dependencies, Description, Document, Front, Line, Markdown, Module,
-    ModuleComposable, ModuleName, Placement, Printable, Problem, Run, Text,
+    Block, Composable, Dependencies, Description, Document, Front, FrontField, Line, Markdown,
+    Module, ModuleName, ModuleText, Placement, Problem, Run, Text,
 };
 
 fn module(text: &str) -> Result<Module, (Line, Problem)> {
-    Markdown(text.to_string())
-        .compose_module()
+    ModuleText(text.to_string())
+        .compose()
         .map_err(|refusal| (refusal.line, refusal.problem))
 }
 
@@ -67,10 +68,25 @@ fn front_refusals_carry_the_line() {
         unsupported(4, "placement: elsewhere")
     );
     assert_eq!(
-        module("---\ndescription: \"quoted\"\ndependencies: []\n---\n"),
-        unsupported(2, "description: \"quoted\"")
+        module("---\ndescription: \"open\ndependencies: []\n---\n"),
+        unsupported(2, "description: \"open")
     );
-    assert_eq!(module("---\ndescription: d\n---\n"), unsupported(3, "---"));
+    assert_eq!(
+        module("---\ndescription: d\n---\n"),
+        Err((Line(3), Problem::Missing(FrontField::Dependencies)))
+    );
+    assert_eq!(
+        module("---\ndependencies: []\n---\n"),
+        Err((Line(3), Problem::Missing(FrontField::Description)))
+    );
+    assert_eq!(
+        module("---\ndescription:\ndependencies: []\n---\n"),
+        Err((Line(2), Problem::Missing(FrontField::Description)))
+    );
+    assert_eq!(
+        module("---\ndescription: \"\"\ndependencies: []\n---\n"),
+        Err((Line(2), Problem::Missing(FrontField::Description)))
+    );
     assert_eq!(
         module("---\ndescription: d\ndependencies: []\n"),
         Err((Line(1), Problem::UnclosedFence))
@@ -89,4 +105,35 @@ fn body_refusals_count_lines_from_the_file_start() {
 #[test]
 fn a_document_alone_still_refuses_front_matter() {
     assert!(Markdown(CANONICAL.to_string()).compose().is_err());
+}
+
+#[test]
+fn a_quoted_description_prints_plain_when_plain_reads_back_the_same() {
+    let read = module("---\ndescription: \"What it is\"\ndependencies: []\n---\n").expect("reads");
+    assert_eq!(read.front.description, Description("What it is".into()));
+    assert_eq!(
+        read.print().0,
+        "---\ndescription: What it is\ndependencies: []\n---\n"
+    );
+    let single = module("---\ndescription: 'it''s'\ndependencies: []\n---\n").expect("reads");
+    assert_eq!(single.front.description, Description("it's".into()));
+}
+
+#[test]
+fn a_description_that_plain_cannot_carry_prints_quoted() {
+    for (text, description) in [
+        (
+            "---\ndescription: \"#hash\"\ndependencies: []\n---\n",
+            "#hash",
+        ),
+        (
+            "---\ndescription: \"say \\\"x\\\" \"\ndependencies: []\n---\n",
+            "say \"x\" ",
+        ),
+    ] {
+        let read = module(text).expect("reads");
+        assert_eq!(read.front.description, Description(description.into()));
+        assert_eq!(read.print().0, text);
+        assert_eq!(module(&read.print().0), Ok(read));
+    }
 }
