@@ -5,7 +5,9 @@ Library
 [ Markdown.String                            ; the text, as it is written
   ReadRefusal.{ Line.Integer Problem }       ; where reading stopped, and why
   Problem.[ UnclosedFence
-            Unsupported.String ] ]           ; the construct as written
+            Unsupported.String               ; the construct as written
+            Missing.FrontField ]             ; a front-matter field absent, or empty
+  FrontField.[ Description Dependencies ] ]
 [ Composable.[ compose.[ Result<Document ReadRefusal> ] ]
   Printable.[ print.[ Markdown ] ] ]
 [ Markdown.[ Composable ]
