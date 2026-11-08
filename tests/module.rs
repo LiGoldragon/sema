@@ -1,6 +1,6 @@
 use sema::module::{Composable as _, Printable as _};
 use sema::{
-    Block, Composable, Dependencies, Description, Document, FrontField, FrontMatter, Line,
+    Block, Composable, Dependencies, Description, Document, FrontMatter, FrontMatterField, Line,
     Markdown, Module, ModuleName, ModuleText, Placement, Problem, Run, Text,
 };
 
@@ -73,19 +73,19 @@ fn front_refusals_carry_the_line() {
     );
     assert_eq!(
         module("---\ndescription: d\n---\n"),
-        Err((Line(3), Problem::Missing(FrontField::Dependencies)))
+        Err((Line(3), Problem::Missing(FrontMatterField::Dependencies)))
     );
     assert_eq!(
         module("---\ndependencies: []\n---\n"),
-        Err((Line(3), Problem::Missing(FrontField::Description)))
+        Err((Line(3), Problem::Missing(FrontMatterField::Description)))
     );
     assert_eq!(
         module("---\ndescription:\ndependencies: []\n---\n"),
-        Err((Line(2), Problem::Missing(FrontField::Description)))
+        Err((Line(2), Problem::Missing(FrontMatterField::Description)))
     );
     assert_eq!(
         module("---\ndescription: \"\"\ndependencies: []\n---\n"),
-        Err((Line(2), Problem::Missing(FrontField::Description)))
+        Err((Line(2), Problem::Missing(FrontMatterField::Description)))
     );
     assert_eq!(
         module("---\ndescription: d\ndependencies: []\n"),

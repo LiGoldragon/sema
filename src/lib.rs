@@ -15,7 +15,7 @@ pub use document::{
     Block, Code, Depth, Document, Kind, Markdown, Outline, Pattern, Place, ProgrammingLanguage,
     Reference, Row, Run, Section, Target, Text, Title,
 };
-pub use error::{FrontField, Line, Problem, ReadRefusal};
+pub use error::{FrontMatterField, Line, Problem, ReadRefusal};
 pub use module::{
     Dependencies, Description, FrontMatter, Module, ModuleName, ModuleText, Placement,
 };

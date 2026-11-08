@@ -18,11 +18,11 @@ pub enum Problem {
     /// The construct as written: the line it stands on.
     Unsupported(String),
     /// A front-matter field absent, or empty.
-    Missing(FrontField),
+    Missing(FrontMatterField),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FrontField {
+pub enum FrontMatterField {
     Description,
     Dependencies,
 }

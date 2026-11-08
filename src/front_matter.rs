@@ -6,7 +6,7 @@
 
 use crate::compose::{Composable, Refusing};
 use crate::document::Markdown;
-use crate::error::{FrontField, Line, Problem, ReadRefusal};
+use crate::error::{FrontMatterField, Line, Problem, ReadRefusal};
 use crate::module::{
     self, Dependencies, Description, FrontMatter, Module, ModuleName, ModuleText, Placement,
 };
@@ -62,7 +62,7 @@ trait FrontReading {
     fn front_matter(&self) -> Result<FrontMatter, ReadRefusal>;
     fn refused(&self, index: usize) -> ReadRefusal;
     /// A field absent, refused at the closing delimiter, or empty, at its line.
-    fn missing(&self, index: usize, field: FrontField) -> ReadRefusal;
+    fn missing(&self, index: usize, field: FrontMatterField) -> ReadRefusal;
 }
 
 impl FrontReading for FrontLines<'_> {
@@ -85,7 +85,7 @@ impl FrontReading for FrontLines<'_> {
                     };
                     let read = value.description().ok_or_else(|| self.refused(index))?;
                     if read.is_empty() {
-                        return Err(self.missing(index, FrontField::Description));
+                        return Err(self.missing(index, FrontMatterField::Description));
                     }
                     description = Some(Description(read));
                 }
@@ -101,9 +101,9 @@ impl FrontReading for FrontLines<'_> {
             }
         }
         let description =
-            description.ok_or_else(|| self.missing(self.close, FrontField::Description))?;
+            description.ok_or_else(|| self.missing(self.close, FrontMatterField::Description))?;
         let dependencies =
-            dependencies.ok_or_else(|| self.missing(self.close, FrontField::Dependencies))?;
+            dependencies.ok_or_else(|| self.missing(self.close, FrontMatterField::Dependencies))?;
         Ok(FrontMatter {
             description,
             dependencies,
@@ -115,7 +115,7 @@ impl FrontReading for FrontLines<'_> {
         Line(index as i64 + 1).refusal(self.source)
     }
 
-    fn missing(&self, index: usize, field: FrontField) -> ReadRefusal {
+    fn missing(&self, index: usize, field: FrontMatterField) -> ReadRefusal {
         ReadRefusal {
             line: Line(index as i64 + 1),
             problem: Problem::Missing(field),
