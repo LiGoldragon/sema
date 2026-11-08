@@ -1,0 +1,12 @@
+[package]
+name         = "sema"
+version      = "0.1.0"
+edition      = "2024"
+rust-version = "1.85"
+license      = "MIT OR Apache-2.0"
+description  = "Sema version 0: Markdown read into a typed document tree and printed back."
+publish      = false
+
+[[bin]]
+name = "sema"
+path = "cli/main.rs"
