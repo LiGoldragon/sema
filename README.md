@@ -14,3 +14,9 @@ Vision source: `psyche-belief` revision `738727d23ec9e9cc6f37b018f428eee5c6cee05
   `Target.Url` (Fable ruling, inferred, pending the living).
 - A module's front matter is refused; `Module.{ Front Document }` is pending
   the living. `sema body <path>` sets front matter aside as a test harness only.
+- `Structural` implements `code`, `references` and `search` by hand.
+  `outline` is not implemented: its root, for a document of other than one
+  top-level section, is not stated. `edit` is not implemented: its `Refusal`
+  has no declaration.
+- No generated code yet: Ethos 19.3.1 refuses `document.ethos` (TraitWanted
+  Depth) and `markdown.ethos` (Undeclared Error); those questions are routed.

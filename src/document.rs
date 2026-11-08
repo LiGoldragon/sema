@@ -84,3 +84,15 @@ pub struct Place(pub Vec<Text>);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Depth(pub usize);
+
+/// The kind of block a search looks in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kind {
+    Headings,
+    Statements,
+    Code,
+    References,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Pattern(pub String);

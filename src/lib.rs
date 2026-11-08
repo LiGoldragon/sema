@@ -6,11 +6,13 @@ mod document;
 mod error;
 mod language;
 mod print;
+mod structural;
 
 pub use compose::Composable;
 pub use document::{
-    Block, Code_Data, Depth, Document, Language, Markdown, Place, Reference_Data, Row, Run,
-    Section, Target, Text, Title,
+    Block, Code_Data, Depth, Document, Kind, Language, Markdown, Pattern, Place, Reference_Data,
+    Row, Run, Section, Target, Text, Title,
 };
 pub use error::{Construct, Delimiter, Error, Line, Problem};
 pub use print::Printable;
+pub use structural::Structural;
