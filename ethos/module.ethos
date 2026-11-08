@@ -2,7 +2,7 @@
 ; Pending the living: Front ruled by Psyche core Fable, inferred.
 Library
 [ sema:[ Document ] ]                        ; imports
-[ ModuleName.String                          ; types: a module's name, kind:subject, as written in the YAML
+[ ModuleName.String                          ; types: a module's name, kind-subject, as written in the YAML
   Placement.[ SystemPrompt Skill ]           ;   where the module is placed
   Front.{ Description.String                 ;   the front matter, typed; field order is print order
           Dependencies.Vector<ModuleName>
