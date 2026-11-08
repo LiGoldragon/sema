@@ -7,17 +7,21 @@
 //!                        closing delimiter line, read as a Document
 //!
 //! A query reads the file as a Module and asks its Document; each argument is
-//! a datom of the type the capability takes, and the answer prints as datom.
+//! a datom, and the answer prints as datom in the translator's forms: a title
+//! as its Markdown inline string, the marks kept; a place as the vector of
+//! its titles; a hit as its place and its block printed as Markdown. A typed
+//! place is matched on the plain words of the headings.
 //!
 //! sema outline <path> <Depth>             e.g. 2
 //! sema search <path> <Kind> <Pattern>     e.g. Headings Signal
-//! sema code <path> <Place>                e.g. [ «The Belief Nexus» Memory ]
+//! sema code <path> <RenderedPlace>        e.g. [ «The Belief Nexus» Memory ]
 
 use datom_codec::{Actualizing, Budget, Composing, Datomizable, Path, Potential};
 use protos::{Protosizable, ReaderBudget, Textualizable};
 use sema::module::{Composable as _, Printable as _};
 use sema::{
-    Composable, Depth, Document, Kind, Markdown, ModuleText, Pattern, Place, Printable, Structural,
+    Composable, Depth, Document, HitRenderable, Kind, Markdown, ModuleText, OutlineRenderable,
+    Pattern, PlaceResolvable, Printable, RenderedPlace, Structural,
 };
 use std::fmt::Debug;
 use std::process::ExitCode;
@@ -99,11 +103,30 @@ fn ask(query: &str, path: &str, inputs: &[String]) -> ExitCode {
         }
     };
     let answer = match (query, inputs) {
-        ("outline", [depth]) => actual::<Depth>(depth).map(|depth| datom(&document.outline(depth))),
-        ("search", [kind, pattern]) => actual::<Kind>(kind).and_then(|kind| {
-            actual::<Pattern>(pattern).map(|pattern| datom(&document.search(kind, pattern)))
+        ("outline", [depth]) => actual::<Depth>(depth).map(|depth| {
+            let outlines: Vec<_> = document
+                .outline(depth)
+                .iter()
+                .map(|outline| outline.rendered_outline())
+                .collect();
+            datom(&outlines)
         }),
-        ("code", [place]) => actual::<Place>(place).map(|place| datom(&document.code(place))),
+        ("search", [kind, pattern]) => actual::<Kind>(kind).and_then(|kind| {
+            actual::<Pattern>(pattern).map(|pattern| {
+                let hits: Vec<_> = document
+                    .search(kind, pattern)
+                    .iter()
+                    .map(|hit| hit.rendered_hit())
+                    .collect();
+                datom(&hits)
+            })
+        }),
+        ("code", [place]) => actual::<RenderedPlace>(place).and_then(|place| {
+            document
+                .resolved(place)
+                .map(|place| datom(&document.code(place)))
+                .map_err(|refusal| datom(&refusal))
+        }),
         _ => return usage(),
     };
     match answer {

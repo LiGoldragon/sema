@@ -51,10 +51,15 @@ Vision source: `psyche-belief` revision `738727d23ec9e9cc6f37b018f428eee5c6cee05
   a link is `Reference.{ Text Url }`. Search yields `Hit.{ Place Block }` and
   reads inline code and links by a walk over the parts. Markdown is read and
   printed at the edge alone.
-- The CLI, built with the `datom` feature, asks a module's Document:
-  `sema outline <path> <Depth>`, `sema search <path> <Kind> <Pattern>`,
-  `sema code <path> <Place>`; each argument is a datom of its type and the
-  answer prints as datom.
+- The CLI, built with the `datom` feature, is the translator: datom in,
+  datom out (Fable ruling). `sema outline <path> <Depth>`,
+  `sema search <path> <Kind> <Pattern>`, `sema code <path> <RenderedPlace>`.
+  A title shows as its Markdown inline string, the marks kept; an outline as
+  nested `{ «title» [ … ] }`; a place as `[ «The Belief Nexus» «Signal» ]`; a
+  hit as its place and its block printed as Markdown. A typed place is the same
+  vector of strings, each read as inline Markdown and matched by its plain words
+  against the headings, refused as `NoSuchSection` or `AmbiguousSection`. The
+  forms are declared in `ethos/translation.ethos`.
 - `Structural` implements `outline`, `code`, `references` and `search` by hand.
   `edit` is not implemented: `Mismatch.{ Place Expected.Block Found.Block }` names
   a Found block, and no rule yet says which block is found when no block at

@@ -1,0 +1,24 @@
+; The translator's own forms: what a reader sees of a listing, datom in and datom out.
+; Markdown is the translator's language, so a Text is shown as its Markdown inline string, the marks kept.
+; Ruled by Psyche core Fable, relayed by Psyche core Opus, 2026-11-08.
+Library
+[ sema:[ Text Outline Place Hit Document ] ]               ; imports: the contract's types
+[ InlineMarkdown.String                                    ; types: a Text as its Markdown inline string, the marks kept
+  RenderedOutline.{ InlineMarkdown                         ;   a heading as written, and the headings under it
+                    Vector<RenderedOutline> }
+  RenderedPlace.Vector<InlineMarkdown>                     ;   the titles above a block, each as written; typed at the CLI too
+  RenderedHit.{ RenderedPlace                              ;   where a search matched,
+                MarkdownBlock.String }                     ;   and the block it matched in, printed as Markdown
+  PlaceRefusal.[ NoSuchSection.RenderedPlace               ;   a typed place matched no section, up to the title that did not match,
+                 AmbiguousSection.RenderedPlace ] ]        ;   or more than one, up to the title that matched several
+[ InlineRenderable.[ inline.[ InlineMarkdown ] ]           ; traits: a Text printed as Markdown inline
+  OutlineRenderable.[ rendered_outline.[ RenderedOutline ] ]
+  PlaceRenderable.[ rendered_place.[ RenderedPlace ] ]
+  HitRenderable.[ rendered_hit.[ RenderedHit ] ]
+  PlaceResolvable.[ resolved.{ [ RenderedPlace ]           ;   a typed place found among the headings by their plain words
+                               [ Result<Place PlaceRefusal> ] } ] ]
+[ Text.[ InlineRenderable ]                                ; associations
+  Outline.[ OutlineRenderable ]
+  Place.[ PlaceRenderable ]
+  Hit.[ HitRenderable ]
+  Document.[ PlaceResolvable ] ]

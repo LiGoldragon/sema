@@ -234,3 +234,65 @@ fn a_hit_carries_the_typed_place_and_its_block() {
         "# The *Belief* `Nexus`\n\nRun `nix build` now.\n\nAdded.\n"
     );
 }
+
+/// The translator shows a title as its Markdown inline string, the marks kept,
+/// and finds a typed place by the plain words of the headings.
+#[test]
+fn the_translator_renders_and_resolves_places() {
+    use sema::{
+        Depth, HitRenderable, InlineMarkdown, MarkdownBlock, OutlineRenderable, PlaceRefusal,
+        PlaceResolvable, RenderedHit, RenderedOutline, RenderedPlace,
+    };
+    let inline = |text: &str| InlineMarkdown(text.to_string());
+    let typed = |titles: &[&str]| RenderedPlace(titles.iter().map(|title| inline(title)).collect());
+    let document = Markdown(
+        "# The *Belief* Nexus\n\n## Signal\n\nRun `nix build` now.\n\n## Twice\n\n## Twice\n"
+            .to_string(),
+    )
+    .compose()
+    .expect("composes");
+    assert_eq!(
+        document.outline(Depth(2))[0].rendered_outline(),
+        RenderedOutline {
+            inline_markdown: inline("The *Belief* Nexus"),
+            rendered_outline_vector: ["Signal", "Twice", "Twice"]
+                .iter()
+                .map(|title| RenderedOutline {
+                    inline_markdown: inline(title),
+                    rendered_outline_vector: vec![],
+                })
+                .collect(),
+        }
+    );
+    let hits = document.search(Kind::InlineCode, Pattern("nix".to_string()));
+    assert_eq!(
+        hits[0].rendered_hit(),
+        RenderedHit {
+            rendered_place: typed(&["The *Belief* Nexus", "Signal"]),
+            markdown_block: MarkdownBlock("Run `nix build` now.".to_string()),
+        }
+    );
+    for written in [
+        ["The Belief Nexus", "Signal"],
+        ["The *Belief* Nexus", "Signal"],
+    ] {
+        assert_eq!(
+            document.resolved(typed(&written)),
+            Ok(hits[0].place.clone())
+        );
+    }
+    assert_eq!(
+        document.resolved(typed(&["The Belief Nexus", "Absent"])),
+        Err(PlaceRefusal::NoSuchSection(typed(&[
+            "The Belief Nexus",
+            "Absent"
+        ])))
+    );
+    assert_eq!(
+        document.resolved(typed(&["The Belief Nexus", "Twice"])),
+        Err(PlaceRefusal::AmbiguousSection(typed(&[
+            "The Belief Nexus",
+            "Twice"
+        ])))
+    );
+}
