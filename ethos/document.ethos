@@ -11,7 +11,7 @@ Library
           Quote.Vector<Block>
           Table.Vector<Row> ]
   Row.Vector<Text>
-  Language.[ Ethos Datom Rust Nix Shell Ini Mermaid Plain ]
+  Language.[ Ethos Datom Rust Nix Shell Ini Toml Mermaid Plain ]
   Text.Vector<Run>                          ; inside a paragraph
   Run.[ Words.String
         Emphasis.Text
