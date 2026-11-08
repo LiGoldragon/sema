@@ -10,6 +10,13 @@ Vision source: `psyche-belief` revision `738727d23ec9e9cc6f37b018f428eee5c6cee05
   Document holding a `Target.Place` stops with `unimplemented!`, because the
   Place-to-anchor conversion is not designed. The contract test is kept,
   ignored, in `tests/round_trip.rs`.
+- Depth is the nesting, read relative: the first heading's level is the top
+  and each deeper level a child; a heading above the top, or one skipping a
+  level, is `Unsupported`. The print is canonical, top sections at `#`, so a
+  module opening at `##` prints back one level up (Fable ruling, inferred,
+  pending the living).
+- Fence spellings are the tags the modules write: `ethos`, `datom`, `rust`,
+  `nix`, `sh` (Shell), `ini`, `toml`, `mermaid`, and no tag for Plain.
 - Markdown link targets, anchors included, are read and printed as
   `Target.Url` (Fable ruling, inferred, pending the living).
 - A whole module is a `ModuleText`, composed into `Module.{ Front Document }`

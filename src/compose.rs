@@ -132,6 +132,8 @@ impl Reading for Region<'_> {
     fn blocks(&self) -> Result<Vec<Block>, ReadRefusal> {
         let mut root = Vec::new();
         let mut open: Vec<Open> = Vec::new();
+        // The first heading's level is the top; a deeper level is a child.
+        let mut top: Option<Depth> = None;
         let close = |open: &mut Vec<Open>, root: &mut Vec<Block>| {
             if let Some(section) = open.pop() {
                 let block = Block::Section(Section {
@@ -150,7 +152,12 @@ impl Reading for Region<'_> {
                     Some(section) => section.block_vector.push(block),
                     None => root.push(block),
                 },
-                Piece::Heading(depth, title, line) => {
+                Piece::Heading(written, title, line) => {
+                    let top = *top.get_or_insert(written);
+                    if written.0 < top.0 {
+                        return Err(line.refusal(self.source));
+                    }
+                    let depth = Depth(written.0 - top.0 + 1);
                     while open.last().is_some_and(|section| section.depth >= depth) {
                         close(&mut open, &mut root);
                     }

@@ -13,8 +13,9 @@ impl Spelled for Language {
             Language::Datom => "datom",
             Language::Rust => "rust",
             Language::Nix => "nix",
-            Language::Shell => "shell",
+            Language::Shell => "sh",
             Language::Ini => "ini",
+            Language::Toml => "toml",
             Language::Mermaid => "mermaid",
             Language::Plain => "",
         }
@@ -32,6 +33,7 @@ impl TryFrom<&str> for Language {
             Language::Nix,
             Language::Shell,
             Language::Ini,
+            Language::Toml,
             Language::Mermaid,
             Language::Plain,
         ]

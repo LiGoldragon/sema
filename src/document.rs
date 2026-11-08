@@ -48,6 +48,7 @@ pub enum Language {
     Nix,
     Shell,
     Ini,
+    Toml,
     Mermaid,
     Plain,
 }

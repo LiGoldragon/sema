@@ -52,6 +52,20 @@ fn sections_nest_by_depth() {
 }
 
 #[test]
+fn the_first_heading_level_is_the_top() {
+    let opened_lower = composed("## A\n\nOne.\n\n### B\n\n## C\n");
+    assert_eq!(opened_lower, composed("# A\n\nOne.\n\n## B\n\n# C\n"));
+    assert_eq!(opened_lower.print().0, "# A\n\nOne.\n\n## B\n\n# C\n");
+}
+
+#[test]
+fn every_fence_spelling_round_trips() {
+    round_trips(
+        "```ethos\n```\n\n```datom\n```\n\n```rust\n```\n\n```nix\n```\n\n```sh\n```\n\n```ini\n```\n\n```toml\n```\n\n```mermaid\n```\n\n```\n```\n",
+    );
+}
+
+#[test]
 fn runs_are_typed() {
     let document = composed("A *b* **c** `d` [e](f) \\* g\n");
     let expected = Document(vec![Block::Statement(Text(vec![
@@ -103,7 +117,8 @@ fn front_matter_is_refused_as_a_document() {
 #[test]
 fn refusals_carry_the_line_as_written() {
     assert_eq!(refused("# A\n\n### C\n"), unsupported(3, "### C"));
-    assert_eq!(refused("```sh\nls\n```\n"), unsupported(1, "```sh"));
+    assert_eq!(refused("```bash\nls\n```\n"), unsupported(1, "```bash"));
+    assert_eq!(refused("## A\n\n# B\n"), unsupported(3, "# B"));
     assert_eq!(refused("Para\n2 * 3\n"), unsupported(2, "2 * 3"));
     assert_eq!(refused("1. one\n"), unsupported(1, "1. one"));
     assert_eq!(refused("Title\n---\n"), unsupported(2, "---"));
