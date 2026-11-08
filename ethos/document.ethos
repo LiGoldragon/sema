@@ -13,12 +13,12 @@ Library
   Row.Vector<Text>
   Title.Text                                ; a heading's words
   ProgrammingLanguage.[ Ethos Datom Rust Nix Shell Ini Toml Mermaid Plain ]
-  Text.Vector<Run>                          ; inside a paragraph
-  Run.[ Words.String
-        Emphasis.Text
-        Strong.Text
-        Code.String
-        Reference ]                         ; a link
+  Text.Vector<TextPart>                     ; inside a paragraph
+  TextPart.[ Words.String
+             Emphasis.Text
+             Strong.Text
+             Code.String
+             Reference ]                    ; a link
   Code.{ ProgrammingLanguage Text }
   Reference.{ Text Target }
   Target.[ Place Url.String ]
