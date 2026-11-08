@@ -4,13 +4,17 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    ethos-zero = {
+      url = "github:LiGoldragon/ethos-zero/04d93e4b705a1b2abbb806fa385a04ce74b13cdd";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     rust-build = {
       url = "github:LiGoldragon/rust-build";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, rust-build }:
+  outputs = { self, nixpkgs, flake-utils, ethos-zero, rust-build }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
@@ -30,6 +34,14 @@
             inherit cargoArtifacts;
             cargoClippyExtraArgs = "--all-targets -- -D warnings";
           });
+          ethos = pkgs.runCommand "sema-ethos" {
+            nativeBuildInputs = [ ethos-zero.packages.${system}.default ];
+          } ''
+            for file in ${./ethos}/*.ethos; do
+              ethos-zero "Check.$file" | tee -a $out
+            done
+            ! grep -q '^Rejected' $out
+          '';
           no-production-free-functions = pkgs.runCommand "sema-no-production-free-functions" { } ''
             if grep -R -n -E '^(pub(\([^)]*\))? )?fn ' ${src}/src; then
               echo "production Rust must not use module-level free functions" >&2
