@@ -88,12 +88,6 @@ impl Reading for Reader {
                 ));
             }
             NodeValue::Paragraph => Block::Statement(self.text(node)?),
-            NodeValue::CodeBlock(code) if !code.closed && code.fenced => {
-                return Err(ReadRefusal {
-                    line: node.line(),
-                    problem: Problem::UnclosedFence,
-                });
-            }
             NodeValue::CodeBlock(code) => {
                 let programming_language = ProgrammingLanguage::try_from(code.info.as_str())
                     .map_err(|_| self.refused(node))?;
@@ -115,8 +109,8 @@ impl Reading for Reader {
         Ok(Piece::Block(block))
     }
 
-    /// Depth is the nesting, read relative: the first heading's level is the
-    /// top and each deeper level a child.
+    /// Depth is the nesting, read relative: the shallowest heading in the
+    /// document is the top and each deeper level a child.
     fn nested(&self, pieces: Vec<Piece>) -> Result<Vec<Block>, ReadRefusal> {
         let mut root = Vec::new();
         let mut open: Vec<Open> = Vec::new();
@@ -132,7 +126,14 @@ impl Reading for Reader {
                 }
             }
         };
-        let mut top: Option<Depth> = None;
+        let top = pieces
+            .iter()
+            .filter_map(|piece| match piece {
+                Piece::Heading(written, _, _) => Some(*written),
+                Piece::Block(_) => None,
+            })
+            .min()
+            .unwrap_or(Depth(1));
         for piece in pieces {
             match piece {
                 Piece::Block(block) => match open.last_mut() {
@@ -140,10 +141,6 @@ impl Reading for Reader {
                     None => root.push(block),
                 },
                 Piece::Heading(written, title, line) => {
-                    let top = *top.get_or_insert(written);
-                    if written < top {
-                        return Err(line.refusal(&self.source));
-                    }
                     let depth = Depth(written.0 - top.0 + 1);
                     while open.last().is_some_and(|section| section.depth >= depth) {
                         close(&mut open, &mut root);
@@ -228,8 +225,6 @@ impl Reading for Reader {
         Ok(match value {
             NodeValue::Text(words) => TextPart::Words(words.to_string()),
             NodeValue::SoftBreak => TextPart::Words("\n".to_string()),
-            // A tag written in prose, `vision:<topic>`, is words as written.
-            NodeValue::HtmlInline(written) => TextPart::Words(written),
             NodeValue::Code(NodeCode { literal, .. }) => TextPart::Code(literal),
             NodeValue::Emph => TextPart::Emphasis(self.text(node)?),
             NodeValue::Strong => TextPart::Strong(self.text(node)?),

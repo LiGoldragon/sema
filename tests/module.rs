@@ -89,7 +89,7 @@ fn front_refusals_carry_the_line() {
     );
     assert_eq!(
         module("---\ndescription: d\ndependencies: []\n"),
-        Err((Line(1), Problem::UnclosedFence))
+        unsupported(1, "---")
     );
     assert_eq!(module("Body.\n"), unsupported(1, "Body."));
 }

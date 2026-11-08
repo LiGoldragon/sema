@@ -31,10 +31,7 @@ impl module::Composable for ModuleText {
         }
         let close = (1..lines.len())
             .find(|index| lines[*index] == DELIMITER)
-            .ok_or(ReadRefusal {
-                line: Line(1),
-                problem: Problem::UnclosedFence,
-            })?;
+            .ok_or_else(|| Line(1).refusal(&lines))?;
         let front_matter = FrontLines {
             source: &lines,
             close,

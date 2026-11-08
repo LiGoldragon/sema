@@ -52,7 +52,13 @@ fn sections_nest_by_depth() {
 }
 
 #[test]
-fn the_first_heading_level_is_the_top() {
+fn the_shallowest_heading_level_is_the_top() {
+    // A shallower heading after the first makes the first a skipped level.
+    assert_eq!(refused("## A\n\n# B\n"), unsupported(1, "## A"));
+}
+
+#[test]
+fn a_module_opened_lower_prints_one_level_up() {
     let opened_lower = composed("## A\n\nOne.\n\n### B\n\n## C\n");
     assert_eq!(opened_lower, composed("# A\n\nOne.\n\n## B\n\n# C\n"));
     assert_eq!(opened_lower.print().0, "# A\n\nOne.\n\n## B\n\n# C\n");
@@ -118,7 +124,6 @@ fn front_matter_is_refused_as_a_document() {
 fn refusals_carry_the_line_as_written() {
     assert_eq!(refused("# A\n\n### C\n"), unsupported(3, "### C"));
     assert_eq!(refused("```bash\nls\n```\n"), unsupported(1, "```bash"));
-    assert_eq!(refused("## A\n\n# B\n"), unsupported(3, "# B"));
     assert_eq!(refused("1. one\n"), unsupported(1, "1. one"));
     assert_eq!(refused("Para.\n\n***\n"), unsupported(3, "***"));
     assert_eq!(refused("<div>\nx\n</div>\n"), unsupported(1, "<div>"));
@@ -146,22 +151,17 @@ fn every_spelling_of_a_construct_is_read() {
 }
 
 #[test]
-fn a_tag_written_in_prose_is_words_printed_as_written() {
-    round_trips("The module vision:<topic> holds it.\n");
+fn inline_html_is_unsupported() {
     assert_eq!(
-        composed("The module vision:<topic> holds it.\n"),
-        Document(vec![Block::Statement(words(
-            "The module vision:<topic> holds it."
-        ))])
+        refused("Para.\n\nThe module vision:<topic> holds it.\n"),
+        unsupported(3, "The module vision:<topic> holds it.")
     );
 }
 
 #[test]
-fn an_unclosed_fence_is_its_own_problem() {
-    assert_eq!(
-        refused("Para.\n\n```rust\nfn x\n"),
-        (Line(3), Problem::UnclosedFence)
-    );
+fn an_unclosed_fence_is_code_to_the_end() {
+    let document = composed("Para.\n\n```rust\nfn x\n");
+    assert_eq!(document, composed("Para.\n\n```rust\nfn x\n```\n"));
 }
 
 fn holding_a_place() -> Document {

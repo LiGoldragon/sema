@@ -4,8 +4,7 @@ Library
 [ sema:[ Document ] ]
 [ Markdown.String                            ; the text, as it is written
   ReadRefusal.{ Line.Integer Problem }       ; where reading stopped, and why
-  Problem.[ UnclosedFence
-            Unsupported.String               ; the construct as written
+  Problem.[ Unsupported.String               ; a construct the Document has no place for, as written
             Missing.FrontMatterField ]       ; a front-matter field absent, or empty
   FrontMatterField.[ Description Dependencies ] ]
 [ Composable.[ compose.[ Result<Document ReadRefusal> ] ]

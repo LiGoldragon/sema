@@ -18,13 +18,13 @@ Vision source: `psyche-belief` revision `738727d23ec9e9cc6f37b018f428eee5c6cee05
   way it is written: a setext heading, a `*` list, a tilde or indented fence.
   What it has no place for is `Unsupported`: an ordered list, a thematic break,
   an HTML block, an image, a hard line break, a link title, an aligned table,
-  a list item of more than one block, a heading inside a list or a quote. A
-  tag written in prose, `vision:<topic>`, is words and prints as written. The
+  a list item of more than one block, a heading inside a list or a quote, inline HTML (a tag written in prose,
+  `vision:<topic>`, among it). An unclosed fence is code to the end of the
+  text. The
   libraries measured against the belief corpus, and the per-module table, are
   in `measure/round-trip.md`.
-- Depth is the nesting, read relative: the first heading's level is the top
-  and each deeper level a child; a heading above the top, or one skipping a
-  level, is `Unsupported`. The print is canonical, top sections at `#`, so a
+- Depth is the nesting, read relative: the shallowest heading's level is the top
+  and each deeper level a child; a heading skipping a level is `Unsupported`. The print is canonical, top sections at `#`, so a
   module opening at `##` prints back one level up (Fable ruling, inferred,
   pending the living).
 - Fence spellings are the tags the modules write: `ethos`, `datom`, `rust`,
@@ -42,8 +42,9 @@ Vision source: `psyche-belief` revision `738727d23ec9e9cc6f37b018f428eee5c6cee05
   `Unsupported`, carrying that line. Source bytes are kept only when the
   source is already canonical.
 - Reading refuses with `ReadRefusal.{ Line Problem }` as ruled:
-  `UnclosedFence`, `Unsupported` carrying the line as written, or `Missing`
-  a front field. A Document
+  `Unsupported`, a construct the Document has no place for, carrying the
+  line as written, or `Missing` a front field; a front matter with no closing
+  delimiter is `Unsupported` at its opening line. A Document
   alone still refuses front matter.
 - `Structural` implements `outline`, `code`, `references` and `search` by hand.
   `edit` is not implemented: `Mismatch.{ Place Expected.Block Found.Block }` names

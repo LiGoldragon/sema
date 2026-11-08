@@ -14,8 +14,8 @@ pub struct Line(pub i64);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Problem {
-    UnclosedFence,
-    /// The construct as written: the line it stands on.
+    /// A construct the Document has no place for, as written: the line it
+    /// stands on.
     Unsupported(String),
     /// A front-matter field absent, or empty.
     Missing(FrontMatterField),
@@ -30,7 +30,6 @@ pub enum FrontMatterField {
 impl std::fmt::Display for ReadRefusal {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.problem {
-            Problem::UnclosedFence => write!(formatter, "line {}: UnclosedFence", self.line.0),
             Problem::Unsupported(written) => {
                 write!(formatter, "line {}: Unsupported «{written}»", self.line.0)
             }
