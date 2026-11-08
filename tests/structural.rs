@@ -8,7 +8,7 @@ fn words(text: &str) -> Text {
 }
 
 fn place(titles: &[&str]) -> Place {
-    Place(titles.iter().map(|title| title.to_string()).collect())
+    Place(titles.iter().map(|title| words(title)).collect())
 }
 
 fn module() -> Document {
@@ -24,7 +24,7 @@ fn module() -> Document {
 fn code_under_a_section() {
     let expected = vec![CodeBlock {
         programming_language: ProgrammingLanguage::Ethos,
-        text: words("Signal"),
+        string: "Signal".to_string(),
     }];
     assert_eq!(
         module().code(place(&["The Belief Nexus", "Signal"])),
@@ -47,20 +47,21 @@ fn references_under_a_section() {
 #[test]
 fn search_over_one_kind() {
     let pattern = |text: &str| Pattern(text.to_string());
+    let places = |hits: Vec<sema::Hit>| hits.into_iter().map(|hit| hit.place).collect::<Vec<_>>();
     assert_eq!(
-        module().search(Kind::Headings, pattern("Signal")),
+        places(module().search(Kind::Headings, pattern("Signal"))),
         vec![place(&["The Belief Nexus", "Signal"])]
     );
     assert_eq!(
-        module().search(Kind::Statements, pattern("beliefs")),
+        places(module().search(Kind::Statements, pattern("beliefs"))),
         vec![place(&["The Belief Nexus"])]
     );
     assert_eq!(
-        module().search(Kind::CodeBlocks, pattern("memory")),
+        places(module().search(Kind::CodeBlocks, pattern("memory"))),
         vec![place(&["The Belief Nexus", "Memory"])]
     );
     assert_eq!(
-        module().search(Kind::References, pattern("#memory")),
+        places(module().search(Kind::References, pattern("#memory"))),
         vec![place(&["The Belief Nexus", "Signal"])]
     );
     assert_eq!(module().search(Kind::Headings, pattern("Absent")), vec![]);
@@ -68,9 +69,9 @@ fn search_over_one_kind() {
 
 #[test]
 fn outline_is_one_per_top_level_section() {
-    use sema::{Depth, Outline, PlainTitle};
+    use sema::{Depth, Outline, Title};
     let outline = |title: &str, inner: Vec<Outline>| Outline {
-        plain_title: PlainTitle(title.to_string()),
+        title: Title(words(title)),
         outline_vector: inner,
     };
     assert_eq!(
@@ -196,33 +197,40 @@ fn an_edit_expecting_another_block_is_a_mismatch_naming_the_found_one() {
     assert_eq!(document, before);
 }
 
-/// A listing yields plain words: a styled heading is found, outlined and
-/// edited by its words without the styling, and the Document keeps the style.
+/// A search hit carries its place, typed as the Document holds its titles,
+/// and the block it matched in; a styled heading matches by its words.
 #[test]
-fn a_styled_heading_lists_as_plain_words() {
-    use sema::{Depth, Edit, Insert_Data, Outline, PlainTitle, Printable as _};
-    let mut document = Markdown("# The *Belief* `Nexus`\n\nKept.\n".to_string())
+fn a_hit_carries_the_typed_place_and_its_block() {
+    use sema::{Block, Edit, Insert_Data, Printable as _};
+    let mut document = Markdown("# The *Belief* `Nexus`\n\nRun `nix build` now.\n".to_string())
         .compose()
         .expect("composes");
+    let title = Text(vec![
+        TextPart::Words("The ".into()),
+        TextPart::Emphasis(words("Belief")),
+        TextPart::Words(" ".into()),
+        TextPart::InlineCode("Nexus".into()),
+    ]);
+    let hits = document.search(Kind::Headings, Pattern("Belief Nexus".to_string()));
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].place, Place(vec![title.clone()]));
+    assert!(matches!(&hits[0].block, Block::Section(section) if section.title.0 == title));
+    let code = document.search(Kind::InlineCode, Pattern("nix".to_string()));
+    assert_eq!(code.len(), 1);
+    assert_eq!(code[0].place, Place(vec![title.clone()]));
+    assert!(matches!(&code[0].block, Block::Statement(_)));
     assert_eq!(
-        document.search(Kind::Headings, Pattern("Belief Nexus".to_string())),
-        vec![place(&["The Belief Nexus"])]
-    );
-    assert_eq!(
-        document.outline(Depth(1)),
-        vec![Outline {
-            plain_title: PlainTitle("The Belief Nexus".to_string()),
-            outline_vector: vec![],
-        }]
+        document.search(Kind::InlineCode, Pattern("Run".to_string())),
+        vec![]
     );
     let edited = document
         .edit(Edit::Insert(Insert_Data {
-            place: place(&["The Belief Nexus"]),
-            block: sema::Block::Statement(words("Added.")),
+            place: hits[0].place.clone(),
+            block: Block::Statement(words("Added.")),
         }))
-        .expect("the place is found by its plain words");
+        .expect("the hit's place is found");
     assert_eq!(
         edited.print().0,
-        "# The *Belief* `Nexus`\n\nKept.\n\nAdded.\n"
+        "# The *Belief* `Nexus`\n\nRun `nix build` now.\n\nAdded.\n"
     );
 }

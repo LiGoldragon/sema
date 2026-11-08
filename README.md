@@ -25,10 +25,10 @@ Vision source: `psyche-belief` revision `738727d23ec9e9cc6f37b018f428eee5c6cee05
   pending the living).
 - Fence spellings are the tags the modules write: `ethos`, `datom`, `rust`,
   `nix`, `sh` (Shell), `ini`, `toml`, `mermaid`, and no tag for Plain.
-- A Target is a Url and nothing else in version 0: every link target,
-  anchors included, is read and printed as the string written (Fable ruling,
-  edition 9). Place is the Sema address yielded by search and edit, and is
-  never read out of Markdown, so `print.[ Markdown ]` is total.
+- A link target is a Url and nothing else in version 0: every target,
+  anchors included, is read and printed as the string written. Place is the
+  Sema address yielded by search and taken by edit, never read out of
+  Markdown, so `print.[ Markdown ]` is total.
 - A whole module is a `ModuleText`, composed into `Module.{ FrontMatter Document }`
   and printed back into a `ModuleText` (`sema module <path>`; Fable rulings,
   inferred, pending the living). The front matter is read as the three
@@ -46,11 +46,11 @@ Vision source: `psyche-belief` revision `738727d23ec9e9cc6f37b018f428eee5c6cee05
   line as written, or `Missing` a front field; a front matter with no closing
   delimiter is `Unsupported` at its opening line. A Document
   alone still refuses front matter.
-- A listing yields plain words (Fable ruling): `Place` is `Vector<String>` and
-  `Outline` is `{ PlainTitle.String Vector<Outline> }`, each the words of a
-  heading without styling; the styled `Title` stays in the Document. Search and
-  edit name a section by those words. Ethos refuses a second `Title`, so the
-  outline's is named `PlainTitle` (Opus naming, pending Fable).
+- The Document is typed to its parts, as Proposal 2 rules: a Title, a Place
+  and an Outline hold typed Text, TextPart kept; a CodeBlock body is a String;
+  a link is `Reference.{ Text Url }`. Search yields `Hit.{ Place Block }` and
+  reads inline code and links by a walk over the parts. Markdown is read and
+  printed at the edge alone.
 - The CLI, built with the `datom` feature, asks a module's Document:
   `sema outline <path> <Depth>`, `sema search <path> <Kind> <Pattern>`,
   `sema code <path> <Place>`; each argument is a datom of its type and the

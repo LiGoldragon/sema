@@ -14,7 +14,7 @@ Library
                  FrontMatterField }
   PlacedBlock.{ Place Block }                ;   a block of the document, with the titles above it
   PendingEdit.{ Edit                         ;   an edit, and the titles of its place still to descend
-                Remaining.Vector<String> }
+                Remaining.Vector<Text> }
   PrintTask.{ Parent.Integer                 ;   one step of the print: what is appended under which built node
               PrintStep
               Depth }
@@ -43,13 +43,13 @@ Library
   Spellable.[ spelling.[ String ]                           ;   the one place a variant meets its written spelling,
               spelled:{ [ String ] [ Option<Self> ] } ]     ;   both ways
   Bulleted.[ bullet:[ Self ] ]                              ;   a tight list marked -
-  Fenceable.[ verbatim.[ String ] ]                         ;   the text as a fence holds it
   Placeable.[ placed.[ Vector<PlacedBlock> ] ]              ;   every block with the titles above it, in reading order
-  Relatable.[ under.{ [ Vector<String> ] [ Boolean ] }       ;   a place below the titles given, or at them
-              within.{ [ Vector<String> ] [ Place ] } ]       ;   the place with the titles given appended
+  Relatable.[ under.{ [ Vector<Text> ] [ Boolean ] }       ;   a place below the titles given, or at them
+              within.{ [ Vector<Text> ] [ Place ] } ]       ;   the place with the titles given appended
   Textual.[ own_texts.[ Vector<Text> ] ]                    ;   the texts a block holds itself
-  Searchable.[ plain.[ String ]
-               references.[ Vector<Reference> ] ]
+  Searchable.[ plain.[ String ]                            ;   the words of a text without its styling
+               references.[ Vector<Reference> ]              ;   its links, nested ones included
+               inline_codes.[ Vector<String> ] ]             ;   its code spans, nested ones included
   Outlinable.[ outlined.{ [ Integer ] [ Vector<Outline> ] } ] ;   the sections among blocks, to a depth
   Editable.[ apply!{ [ PendingEdit ] [ Option<EditRefusal> ] } ] ] ; blocks edited below the rest of a place; None when done
 [ SourceLines.[ Quotable ]                                  ; associations: the lane's own types; comrak's and std's are asserted by their impls
@@ -57,7 +57,7 @@ Library
   Document.[ Placeable ]
   Place.[ Relatable ]
   Block.[ Textual ]
-  Text.[ Searchable Fenceable ]
+  Text.[ Searchable ]
   ProgrammingLanguage.[ Spellable ]
   Placement.[ Spellable ]
   Pieces.[ Nestable ] ]

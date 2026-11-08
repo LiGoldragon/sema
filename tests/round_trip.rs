@@ -1,6 +1,6 @@
 use sema::{
     Block, CodeBlock, Composable, Document, Line, Markdown, Printable, Problem,
-    ProgrammingLanguage, Reference, Section, Target, Text, TextPart, Title, Url,
+    ProgrammingLanguage, Reference, Section, Text, TextPart, Title, Url,
 };
 
 fn composed(text: &str) -> Document {
@@ -84,7 +84,7 @@ fn runs_are_typed() {
         TextPart::Words(" ".into()),
         TextPart::Reference(Reference {
             text: words("e"),
-            target: Target(Url("f".into())),
+            url: Url("f".into()),
         }),
         TextPart::Words(" * g".into()),
     ]))]);
@@ -96,7 +96,7 @@ fn fence_holds_its_language() {
     let document = composed("```ethos\nLibrary\n[]\n```\n");
     let expected = Document(vec![Block::CodeBlock(CodeBlock {
         programming_language: ProgrammingLanguage::Ethos,
-        text: words("Library\n[]"),
+        string: "Library\n[]".to_string(),
     })]);
     assert_eq!(document, expected);
 }
@@ -173,7 +173,7 @@ fn an_anchor_reads_as_url_and_prints_back() {
         TextPart::Words("See ".into()),
         TextPart::Reference(Reference {
             text: words("the signal"),
-            target: Target(Url("#signal".into())),
+            url: Url("#signal".into()),
         }),
         TextPart::Words(".".into()),
     ]))]);

@@ -12,7 +12,7 @@ use crate::reading::{
 };
 use crate::{
     Block, CodeBlock, Composable, Depth, Document, Line, Markdown, Problem, ProgrammingLanguage,
-    ReadRefusal, Reference, Row, Section, Target, Text, TextPart, Title, Url,
+    ReadRefusal, Reference, Row, Section, Text, TextPart, Title, Url,
 };
 
 impl Composable for Markdown {
@@ -47,13 +47,9 @@ impl<'a> Readable for &'a AstNode<'a> {
                 let programming_language =
                     ProgrammingLanguage::spelled(code.info.clone()).ok_or_else(|| self.line())?;
                 let literal = code.literal.strip_suffix('\n').unwrap_or(&code.literal);
-                let text = match literal.is_empty() {
-                    true => Text(Vec::new()),
-                    false => Text(vec![TextPart::Words(literal.to_string())]),
-                };
                 Block::CodeBlock(CodeBlock {
                     programming_language,
-                    text,
+                    string: literal.to_string(),
                 })
             }
             NodeValue::List(list) if list.list_type == ListType::Bullet => self.list()?,
@@ -130,7 +126,7 @@ impl<'a> Readable for &'a AstNode<'a> {
             NodeValue::Strong => TextPart::Strong(self.text()?),
             NodeValue::Link(link) if link.title.is_empty() => TextPart::Reference(Reference {
                 text: self.text()?,
-                target: Target(Url(link.url.clone())),
+                url: Url(link.url.clone()),
             }),
             _ => return Err(self.line()),
         })

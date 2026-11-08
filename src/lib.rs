@@ -21,9 +21,9 @@ mod reading;
 mod structural;
 
 pub use document::{
-    Block, CodeBlock, Depth, Document, Edit, EditRefusal, Expected, Found, Insert_Data, Kind,
-    Mismatch_Data, New, Old, Outline, Pattern, Place, PlainTitle, ProgrammingLanguage, Reference,
-    Remove_Data, Replace_Data, Row, Section, Structural, Target, Text, TextPart, Title, Url,
+    Block, CodeBlock, Depth, Document, Edit, EditRefusal, Expected, Found, Hit, Insert_Data, Kind,
+    Mismatch_Data, New, Old, Outline, Pattern, Place, ProgrammingLanguage, Reference, Remove_Data,
+    Replace_Data, Row, Section, Structural, Text, TextPart, Title, Url,
 };
 pub use markdown::{Composable, FrontMatterField, Line, Markdown, Printable, Problem, ReadRefusal};
 pub use module::{

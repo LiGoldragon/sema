@@ -9,9 +9,9 @@ use comrak::nodes::{
 use comrak::{Arena, Options};
 
 use crate::reading::{
-    Bulleted, Configurable, Fenceable, Header, Parent, PrintStep, PrintTask, Row_Data, Spellable,
+    Bulleted, Configurable, Header, Parent, PrintStep, PrintTask, Row_Data, Spellable,
 };
-use crate::{Block, Depth, Document, Markdown, Printable, Target, Text, TextPart, Url};
+use crate::{Block, Depth, Document, Markdown, Printable, TextPart, Url};
 
 impl Printable for Document {
     /// The tree is built step by step: a step appends its node under its
@@ -79,7 +79,7 @@ impl Printable for Document {
                     });
                 }
                 PrintStep::Block(Block::CodeBlock(code)) => {
-                    let mut literal = code.text.verbatim();
+                    let mut literal = code.string.clone();
                     if !literal.is_empty() {
                         literal.push('\n');
                     }
@@ -179,7 +179,7 @@ impl Printable for Document {
                                 Some((add(&parent, NodeValue::Strong), inner))
                             }
                             TextPart::Reference(reference) => {
-                                let Target(Url(url)) = &reference.target;
+                                let Url(url) = &reference.url;
                                 let url = url.clone();
                                 let link = add(
                                     &parent,
@@ -219,19 +219,5 @@ impl Bulleted for NodeList {
             padding: 2,
             ..NodeList::default()
         }
-    }
-}
-
-impl Fenceable for Text {
-    /// Its words unescaped.
-    fn verbatim(&self) -> String {
-        self.0
-            .iter()
-            .map(|text_part| match text_part {
-                TextPart::Words(words) | TextPart::InlineCode(words) => words.clone(),
-                TextPart::Emphasis(inner) | TextPart::Strong(inner) => inner.verbatim(),
-                TextPart::Reference(reference) => reference.text.verbatim(),
-            })
-            .collect()
     }
 }

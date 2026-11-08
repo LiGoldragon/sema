@@ -13,21 +13,20 @@ Library
   Row.Vector<Text>
   Title.Text                                ; a heading's words
   ProgrammingLanguage.[ Ethos Datom Rust Nix Shell Ini Toml Mermaid Plain ]
-  Text.Vector<TextPart>                     ; inside a paragraph
-  TextPart.[ Words.String
+  Text.Vector<TextPart>                     ; inside a paragraph or a heading
+  TextPart.[ Words.String                   ; one part of a text, in one style
              Emphasis.Text
              Strong.Text
-             InlineCode.String                     ; code inside a sentence, between backticks
+             InlineCode.String              ; code inside a sentence, between backticks
              Reference ]                    ; a link
-  CodeBlock.{ ProgrammingLanguage Text }   ; a fence: its programming language and its text
-  Reference.{ Text Target }
-  Target.Url
+  CodeBlock.{ ProgrammingLanguage String }  ; a fence: its programming language and its text, plain
+  Reference.{ Text Url }                    ; a link: its words and its target
   Url.String                                ; the link target, as written
-  Place.Vector<String>                      ; the words of the titles above a block, from the root, without styling
+  Place.Vector<Text>                        ; the titles above a block, from the root
   Depth.Integer
-  Outline.{ PlainTitle.String              ; a heading in plain words, without styling,
-            Vector<Outline> }              ;   and the headings under it
-  Kind.[ Headings Statements CodeBlocks References ]
+  Outline.{ Title Vector<Outline> }
+  Kind.[ Headings Statements CodeBlocks InlineCode References ]
+  Hit.{ Place Block }                       ; where a search matched, and the block it matched in
   Pattern.String
   Edit.[ Insert.{ Place Block }
          Replace.{ Place Old.Block New.Block }
@@ -40,6 +39,6 @@ Library
 [ Structural.[ outline.{ [ Depth ] [ Vector<Outline> ] } ; the headings, to a depth: one per top-level section
                code.{ [ Place ] [ Vector<CodeBlock> ] }    ; the code blocks under a section
                references.{ [ Place ] [ Vector<Reference> ] }
-               search.{ [ Kind Pattern ] [ Vector<Place> ] } ; a string search over one kind
+               search.{ [ Kind Pattern ] [ Vector<Hit> ] }   ; a string search over one kind; each hit with its block
                edit!{ [ Edit ] [ Result<Document EditRefusal> ] } ] ]
 [ Document.[ Structural ] ]
