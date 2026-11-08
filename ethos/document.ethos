@@ -1,0 +1,35 @@
+; Source: psyche-belief 738727d23ec9e9cc6f37b018f428eee5c6cee057, vision/sema-v0.md
+Library
+[]
+[ Document.Vector<Block>
+  Section.{ Title.Text Vector<Block> }      ; a heading and what is under it
+  Block.[ Statement.Text                    ; a paragraph
+          Section
+          Code.{ Language Text }            ; a fence; Mermaid is a figure
+          List.Vector<Block>
+          Quote.Vector<Block>
+          Table.Vector<Row> ]
+  Row.Vector<Text>
+  Language.[ Ethos Datom Rust Nix Shell Ini Mermaid Plain ]
+  Text.Vector<Run>                          ; inside a paragraph
+  Run.[ Words.String
+        Emphasis.Text
+        Strong.Text
+        Code.String
+        Reference.{ Text Target } ]         ; a link
+  Target.[ Place Url.String ]
+  Place.Vector<Text>                        ; the titles above a block, from the root
+  Depth.Integer
+  Outline.{ Title.Text Vector<Outline> }
+  Kind.[ Headings Statements Code References ]
+  Pattern.String
+  Edit.[ Insert.{ Place Block }
+         Replace.{ Place Old.Block New.Block }
+         Remove.{ Place Block } ] ]
+; what is asked of a document
+[ Structural.[ outline.{ [ Depth ] [ Outline ] }          ; the headings, to a depth
+               code.{ [ Place ] [ Vector<Code> ] }         ; the code blocks under a section
+               references.{ [ Place ] [ Vector<Reference> ] }
+               search.{ [ Kind Pattern ] [ Vector<Place> ] } ; a string search over one kind
+               edit!{ [ Edit ] [ Result<Document Refusal> ] } ] ]
+[ Document.[ Structural ] ]

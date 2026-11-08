@@ -1,0 +1,8 @@
+; Source: psyche-belief 738727d23ec9e9cc6f37b018f428eee5c6cee057, vision/sema-v0.md
+Library
+[ sema:[ Document ] ]
+[ Markdown.String ]                          ; the text, as it is written
+[ Composable.[ compose.[ Result<Document Error> ] ]
+  Printable.[ print.[ Markdown ] ] ]
+[ Markdown.[ Composable ]
+  Document.[ Printable ] ]
