@@ -1,4 +1,5 @@
 ; Source: psyche-belief 738727d23ec9e9cc6f37b018f428eee5c6cee057, vision/sema-v0.md
+; Pending the living: Sema v0 schema packet ruled by Psyche core Fable, inferred.
 Library
 []
 [ Document.Vector<Block>
@@ -25,11 +26,15 @@ Library
   Pattern.String
   Edit.[ Insert.{ Place Block }
          Replace.{ Place Old.Block New.Block }
-         Remove.{ Place Block } ] ]
+         Remove.{ Place Block } ]
+  EditRefusal.[ NoSuchPlace.Place           ; why an edit is refused: no block at the place,
+                Mismatch.{ Place            ;   or the block found is not the one expected
+                           Old.Block
+                           Found.Block } ] ]
 ; what is asked of a document
-[ Structural.[ outline.{ [ Depth ] [ Outline ] }          ; the headings, to a depth
+[ Structural.[ outline.{ [ Depth ] [ Vector<Outline> ] } ; the headings, to a depth: one per top-level section
                code.{ [ Place ] [ Vector<Code> ] }         ; the code blocks under a section
                references.{ [ Place ] [ Vector<Reference> ] }
                search.{ [ Kind Pattern ] [ Vector<Place> ] } ; a string search over one kind
-               edit!{ [ Edit ] [ Result<Document Refusal> ] } ] ]
+               edit!{ [ Edit ] [ Result<Document EditRefusal> ] } ] ]
 [ Document.[ Structural ] ]
