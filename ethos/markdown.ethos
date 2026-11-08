@@ -6,8 +6,8 @@ Library
   ReadRefusal.{ Line.Integer Problem }       ; where reading stopped, and why
   Problem.[ UnclosedFence
             Unsupported.String               ; the construct as written
-            Missing.FrontField ]             ; a front-matter field absent, or empty
-  FrontField.[ Description Dependencies ] ]
+            Missing.FrontMatterField ]       ; a front-matter field absent, or empty
+  FrontMatterField.[ Description Dependencies ] ]
 [ Composable.[ compose.[ Result<Document ReadRefusal> ] ]
   Printable.[ print.[ Markdown ] ] ]
 [ Markdown.[ Composable ]
