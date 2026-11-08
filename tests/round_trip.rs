@@ -141,3 +141,16 @@ fn unsupported_forms_are_refused() {
         (Line(2), Problem::Unsupported(Construct::LazyContinuation))
     );
 }
+
+#[test]
+fn anchors_read_as_url() {
+    let document = composed("[see](#the-belief-nexus)\n");
+    let expected = Document(vec![Block::Statement(Text(vec![Run::Reference(
+        Reference_Data {
+            text: words("see"),
+            target: Target::Url("#the-belief-nexus".into()),
+        },
+    )]))]);
+    assert_eq!(document, expected);
+    round_trips("[see](#the-belief-nexus)\n");
+}

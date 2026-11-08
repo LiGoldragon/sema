@@ -137,24 +137,19 @@ impl TextRendering for Text {
     }
 }
 
-/// UNKNOWN, pending judgment. The vision gives `Target.Place`, the titles
-/// above a block from the root, and gives no Markdown form for it: a Markdown
-/// link names an anchor, and neither direction between a Place and an anchor
-/// is stated. The reader never composes a Place. `print.[ Markdown ]` is total,
-/// so a Place handed to the printer is written in this assumed form, `#` and
-/// the titles joined by `/`, which is not approved and is not read back.
-trait ProvisionalTarget {
-    fn provisional_target(&self) -> String;
+/// UNIMPLEMENTED until designed (Fable ruling, inferred, pending the living).
+/// A Markdown link target, anchors included, is read and printed as
+/// `Target.Url`, the string as written; a Place is never composed from
+/// Markdown. A Place is what Sema itself yields, in search results and edits,
+/// named by titles from the root, and the conversion from a Place to an
+/// anchor is not designed, so printing one stops here instead of guessing.
+trait AnchorConversion {
+    fn anchor(&self) -> String;
 }
 
-impl ProvisionalTarget for Place {
-    fn provisional_target(&self) -> String {
-        let titles: Vec<String> = self
-            .0
-            .iter()
-            .map(|title| title.rendered(Surround::Prose))
-            .collect();
-        format!("#{}", titles.join("/"))
+impl AnchorConversion for Place {
+    fn anchor(&self) -> String {
+        unimplemented!("Place-to-anchor conversion is not designed in Sema v0")
     }
 }
 
@@ -172,7 +167,7 @@ impl RunRendering for Run {
             Run::Reference(reference) => {
                 let target = match &reference.target {
                     Target::Url(url) => url.clone(),
-                    Target::Place(place) => place.provisional_target(),
+                    Target::Place(place) => place.anchor(),
                 };
                 format!(
                     "[{}]({target})",
