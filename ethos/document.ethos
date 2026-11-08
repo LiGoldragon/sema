@@ -23,9 +23,10 @@ Library
   Reference.{ Text Target }
   Target.Url
   Url.String                                ; the link target, as written
-  Place.Vector<Text>                        ; the titles above a block, from the root
+  Place.Vector<String>                      ; the words of the titles above a block, from the root, without styling
   Depth.Integer
-  Outline.{ Title Vector<Outline> }
+  Outline.{ PlainTitle.String              ; a heading in plain words, without styling,
+            Vector<Outline> }              ;   and the headings under it
   Kind.[ Headings Statements CodeBlocks References ]
   Pattern.String
   Edit.[ Insert.{ Place Block }

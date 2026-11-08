@@ -46,6 +46,15 @@ Vision source: `psyche-belief` revision `738727d23ec9e9cc6f37b018f428eee5c6cee05
   line as written, or `Missing` a front field; a front matter with no closing
   delimiter is `Unsupported` at its opening line. A Document
   alone still refuses front matter.
+- A listing yields plain words (Fable ruling): `Place` is `Vector<String>` and
+  `Outline` is `{ PlainTitle.String Vector<Outline> }`, each the words of a
+  heading without styling; the styled `Title` stays in the Document. Search and
+  edit name a section by those words. Ethos refuses a second `Title`, so the
+  outline's is named `PlainTitle` (Opus naming, pending Fable).
+- The CLI, built with the `datom` feature, asks a module's Document:
+  `sema outline <path> <Depth>`, `sema search <path> <Kind> <Pattern>`,
+  `sema code <path> <Place>`; each argument is a datom of its type and the
+  answer prints as datom.
 - `Structural` implements `outline`, `code`, `references` and `search` by hand.
   `edit` is not implemented: `Mismatch.{ Place Expected.Block Found.Block }` names
   a Found block, and no rule yet says which block is found when no block at

@@ -5,14 +5,31 @@
 //! sema document <path>   the whole file as a Document; front matter is refused
 //! sema body <path>       a test harness: the text after the front matter's
 //!                        closing delimiter line, read as a Document
+//!
+//! A query reads the file as a Module and asks its Document; each argument is
+//! a datom of the type the capability takes, and the answer prints as datom.
+//!
+//! sema outline <path> <Depth>             e.g. 2
+//! sema search <path> <Kind> <Pattern>     e.g. Headings Signal
+//! sema code <path> <Place>                e.g. [ «The Belief Nexus» Memory ]
 
+use datom_codec::{Actualizing, Budget, Composing, Datomizable, Path, Potential};
+use protos::{Protosizable, ReaderBudget, Textualizable};
 use sema::module::{Composable as _, Printable as _};
-use sema::{Composable, Markdown, ModuleText, Printable};
+use sema::{
+    Composable, Depth, Document, Kind, Markdown, ModuleText, Pattern, Place, Printable, Structural,
+};
 use std::fmt::Debug;
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
+    match arguments.as_slice() {
+        [query, path, inputs @ ..] if ["outline", "search", "code"].contains(&query.as_str()) => {
+            return ask(query, path, inputs);
+        }
+        _ => {}
+    }
     let [mode, path] = arguments.as_slice() else {
         return usage();
     };
@@ -60,8 +77,61 @@ fn main() -> ExitCode {
 }
 
 fn usage() -> ExitCode {
-    eprintln!("usage: sema (module|document|body) <path>");
+    eprintln!(
+        "usage: sema (module|document|body) <path>\n       sema outline <path> <Depth>\n       sema search <path> <Kind> <Pattern>\n       sema code <path> <Place>"
+    );
     ExitCode::from(2)
+}
+
+/// One Structural capability over the file's Document, its answer as datom.
+fn ask(query: &str, path: &str, inputs: &[String]) -> ExitCode {
+    let document: Document = match std::fs::read_to_string(path)
+        .map_err(|error| error.to_string())
+        .and_then(|text| {
+            ModuleText(text)
+                .compose()
+                .map_err(|refusal| refusal.to_string())
+        }) {
+        Ok(module) => module.document,
+        Err(problem) => {
+            eprintln!("{path}: {problem}");
+            return ExitCode::from(1);
+        }
+    };
+    let answer = match (query, inputs) {
+        ("outline", [depth]) => actual::<Depth>(depth).map(|depth| datom(&document.outline(depth))),
+        ("search", [kind, pattern]) => actual::<Kind>(kind).and_then(|kind| {
+            actual::<Pattern>(pattern).map(|pattern| datom(&document.search(kind, pattern)))
+        }),
+        ("code", [place]) => actual::<Place>(place).map(|place| datom(&document.code(place))),
+        _ => return usage(),
+    };
+    match answer {
+        Ok(text) => {
+            println!("{text}");
+            ExitCode::SUCCESS
+        }
+        Err(problem) => {
+            eprintln!("{problem}");
+            ExitCode::from(2)
+        }
+    }
+}
+
+fn actual<T: Composing>(text: &str) -> Result<T, String> {
+    let mut budget = Budget {
+        remaining: 4_096,
+        reader: ReaderBudget::try_from(4_096).map_err(|error| format!("{error:?}"))?,
+        depth: 0,
+        maximum_depth: 64,
+    };
+    Potential::<T>::from(text)
+        .actualize(&mut budget)
+        .map_err(|error| format!("{text}: {error:?}"))
+}
+
+fn datom<T: Datomizable>(value: &T) -> String {
+    value.datomize(Path::new()).protosize().textualize()
 }
 
 fn report<T: Debug + PartialEq, E: std::fmt::Display>(

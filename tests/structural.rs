@@ -8,7 +8,7 @@ fn words(text: &str) -> Text {
 }
 
 fn place(titles: &[&str]) -> Place {
-    Place(titles.iter().map(|title| words(title)).collect())
+    Place(titles.iter().map(|title| title.to_string()).collect())
 }
 
 fn module() -> Document {
@@ -68,9 +68,9 @@ fn search_over_one_kind() {
 
 #[test]
 fn outline_is_one_per_top_level_section() {
-    use sema::{Depth, Outline, Title};
+    use sema::{Depth, Outline, PlainTitle};
     let outline = |title: &str, inner: Vec<Outline>| Outline {
-        title: Title(words(title)),
+        plain_title: PlainTitle(title.to_string()),
         outline_vector: inner,
     };
     assert_eq!(
@@ -194,4 +194,35 @@ fn an_edit_expecting_another_block_is_a_mismatch_naming_the_found_one() {
         }))
     );
     assert_eq!(document, before);
+}
+
+/// A listing yields plain words: a styled heading is found, outlined and
+/// edited by its words without the styling, and the Document keeps the style.
+#[test]
+fn a_styled_heading_lists_as_plain_words() {
+    use sema::{Depth, Edit, Insert_Data, Outline, PlainTitle, Printable as _};
+    let mut document = Markdown("# The *Belief* `Nexus`\n\nKept.\n".to_string())
+        .compose()
+        .expect("composes");
+    assert_eq!(
+        document.search(Kind::Headings, Pattern("Belief Nexus".to_string())),
+        vec![place(&["The Belief Nexus"])]
+    );
+    assert_eq!(
+        document.outline(Depth(1)),
+        vec![Outline {
+            plain_title: PlainTitle("The Belief Nexus".to_string()),
+            outline_vector: vec![],
+        }]
+    );
+    let edited = document
+        .edit(Edit::Insert(Insert_Data {
+            place: place(&["The Belief Nexus"]),
+            block: sema::Block::Statement(words("Added.")),
+        }))
+        .expect("the place is found by its plain words");
+    assert_eq!(
+        edited.print().0,
+        "# The *Belief* `Nexus`\n\nKept.\n\nAdded.\n"
+    );
 }

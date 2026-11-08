@@ -10,7 +10,8 @@ use crate::reading::{
 };
 use crate::{
     Block, CodeBlock, Depth, Document, Edit, EditRefusal, Expected, Found, Kind, Mismatch_Data,
-    Outline, Pattern, Place, Reference, Section, Structural, Target, Text, TextPart, Url,
+    Outline, Pattern, Place, PlainTitle, Reference, Section, Structural, Target, Text, TextPart,
+    Url,
 };
 
 impl Structural for Document {
@@ -48,7 +49,7 @@ impl Structural for Document {
         for PlacedBlock { place, block } in self.placed() {
             match (&kind, &block) {
                 (Kind::Headings, Block::Section(section)) if holds(section.title.0.plain()) => {
-                    places.push(place.within(vec![section.title.0.clone()]));
+                    places.push(place.within(vec![section.title.0.plain()]));
                 }
                 (Kind::Statements, Block::Statement(text)) if holds(text.plain()) => {
                     places.push(place);
@@ -120,10 +121,9 @@ impl Editable for Vec<Block> {
             };
         }
         let title = titles.remove(0);
-        let Some(index) = self
-            .iter()
-            .position(|block| matches!(block, Block::Section(section) if section.title.0 == title))
-        else {
+        let Some(index) = self.iter().position(
+            |block| matches!(block, Block::Section(section) if section.title.0.plain() == title),
+        ) else {
             return Some(EditRefusal::NoSuchPlace(place));
         };
         let at_place = titles.is_empty();
@@ -177,7 +177,7 @@ impl Placeable for Document {
         while let Some(placed) = pending.pop() {
             let children: Vec<PlacedBlock> = match &placed.block {
                 Block::Section(section) => {
-                    let inner = placed.place.within(vec![section.title.0.clone()]);
+                    let inner = placed.place.within(vec![section.title.0.plain()]);
                     section
                         .block_vector
                         .iter()
@@ -204,11 +204,11 @@ impl Placeable for Document {
 }
 
 impl Relatable for Place {
-    fn under(&self, titles: Vec<Text>) -> bool {
+    fn under(&self, titles: Vec<String>) -> bool {
         self.0.starts_with(&titles)
     }
 
-    fn within(&self, titles: Vec<Text>) -> Place {
+    fn within(&self, titles: Vec<String>) -> Place {
         let mut within = self.0.clone();
         within.extend(titles);
         Place(within)
@@ -267,7 +267,7 @@ impl Outlinable for Vec<Block> {
                         title,
                         block_vector,
                     }) => Some(Outline {
-                        title: title.clone(),
+                        plain_title: PlainTitle(title.0.plain()),
                         outline_vector: block_vector.outlined(depth - 1),
                     }),
                     _ => None,

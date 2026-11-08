@@ -41,14 +41,18 @@
       in
       {
         packages.generated = generated;
-        packages.default = craneLib.buildPackage (commonArguments // { inherit cargoArtifacts; });
+        # The CLI speaks text, so it is built with the datom kinds.
+        packages.default = craneLib.buildPackage (commonArguments // {
+          inherit cargoArtifacts;
+          cargoExtraArgs = "--locked --features datom";
+        });
         checks = {
           build = craneLib.cargoBuild (commonArguments // { inherit cargoArtifacts; });
           test = craneLib.cargoTest (commonArguments // { inherit cargoArtifacts; });
           fmt = craneLib.cargoFmt { inherit src; };
           clippy = craneLib.cargoClippy (commonArguments // {
             inherit cargoArtifacts;
-            cargoClippyExtraArgs = "--all-targets -- -D warnings";
+            cargoClippyExtraArgs = "--all-targets --features datom -- -D warnings";
           });
           # No type or trait is declared by hand: every one is generated from the ethos.
           no-hand-written-declarations = pkgs.runCommand "sema-no-hand-written-declarations" { } ''

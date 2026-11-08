@@ -8,13 +8,15 @@ description  = "Sema version 0: Markdown read into a typed document tree and pri
 publish      = false
 
 [[bin]]
-name = "sema"
-path = "cli/main.rs"
+name              = "sema"
+path              = "cli/main.rs"
+required-features = ["datom"]
 
 [features]
-datom = ["dep:datom-codec"]
+datom = ["dep:datom-codec", "dep:protos"]
 
 [dependencies]
 comrak      = { version = "0.59", default-features = false }
 rkyv        = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
 datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "5cd6219", optional = true }
+protos      = { git = "https://github.com/LiGoldragon/protos", rev = "3c7ade3", optional = true }
