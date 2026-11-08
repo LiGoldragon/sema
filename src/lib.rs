@@ -13,8 +13,8 @@ mod structural;
 
 pub use compose::Composable;
 pub use document::{
-    Block, Code, Depth, Document, Kind, Markdown, Outline, Pattern, Place, ProgrammingLanguage,
-    Reference, Row, Section, Target, Text, TextPart, Title,
+    Block, CodeBlock, Depth, Document, Kind, Markdown, Outline, Pattern, Place,
+    ProgrammingLanguage, Reference, Row, Section, Target, Text, TextPart, Title,
 };
 pub use error::{FrontMatterField, Line, Problem, ReadRefusal};
 pub use module::{

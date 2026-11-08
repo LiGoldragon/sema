@@ -25,14 +25,14 @@ pub enum Block {
     Statement(Text),
     Section(Section),
     /// A fence; Mermaid is a figure.
-    Code(Code),
+    CodeBlock(CodeBlock),
     List(Vec<Block>),
     Quote(Vec<Block>),
     Table(Vec<Row>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Code {
+pub struct CodeBlock {
     pub programming_language: ProgrammingLanguage,
     pub text: Text,
 }
@@ -62,7 +62,7 @@ pub enum TextPart {
     Words(String),
     Emphasis(Text),
     Strong(Text),
-    Code(String),
+    InlineCode(String),
     /// A link.
     Reference(Reference),
 }
@@ -91,7 +91,7 @@ pub struct Depth(pub usize);
 pub enum Kind {
     Headings,
     Statements,
-    Code,
+    CodeBlocks,
     References,
 }
 

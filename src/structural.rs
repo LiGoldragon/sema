@@ -4,15 +4,15 @@
 //! Mismatch names a Found block that no rule yet picks.
 
 use crate::document::{
-    Block, Code, Depth, Document, Kind, Outline, Pattern, Place, Reference, Section, Target, Text,
-    TextPart,
+    Block, CodeBlock, Depth, Document, Kind, Outline, Pattern, Place, Reference, Section, Target,
+    Text, TextPart,
 };
 
 pub trait Structural {
     /// One outline per top-level section, to the depth; empty when there is none.
     fn outline(&self, depth: Depth) -> Vec<Outline>;
     /// The code blocks under a section, its subsections included.
-    fn code(&self, place: &Place) -> Vec<Code>;
+    fn code(&self, place: &Place) -> Vec<CodeBlock>;
     /// The links under a section, its subsections and titles included.
     fn references(&self, place: &Place) -> Vec<Reference>;
     /// The place of each block of the kind whose text holds the pattern; a
@@ -25,12 +25,12 @@ impl Structural for Document {
         self.0.as_slice().outlined(depth)
     }
 
-    fn code(&self, place: &Place) -> Vec<Code> {
+    fn code(&self, place: &Place) -> Vec<CodeBlock> {
         self.placed()
             .into_iter()
             .filter(|(above, _)| above.under(place))
             .filter_map(|(_, block)| match block {
-                Block::Code(code) => Some(code.clone()),
+                Block::CodeBlock(code) => Some(code.clone()),
                 _ => None,
             })
             .collect()
@@ -56,7 +56,9 @@ impl Structural for Document {
                 (Kind::Statements, Block::Statement(text)) if holds(text.plain()) => {
                     places.push(above);
                 }
-                (Kind::Code, Block::Code(code)) if holds(code.text.plain()) => places.push(above),
+                (Kind::CodeBlocks, Block::CodeBlock(code)) if holds(code.text.plain()) => {
+                    places.push(above)
+                }
                 (Kind::References, block) => {
                     let found = block
                         .own_texts()
@@ -144,7 +146,7 @@ impl OwnTexts for Block {
             Block::Statement(text) => vec![text],
             Block::Section(section) => vec![&section.title.0],
             Block::Table(rows) => rows.iter().flat_map(|row| row.0.iter()).collect(),
-            Block::Code(_) | Block::List(_) | Block::Quote(_) => Vec::new(),
+            Block::CodeBlock(_) | Block::List(_) | Block::Quote(_) => Vec::new(),
         }
     }
 }
@@ -160,7 +162,7 @@ impl TextReading for Text {
         self.0
             .iter()
             .map(|text_part| match text_part {
-                TextPart::Words(words) | TextPart::Code(words) => words.clone(),
+                TextPart::Words(words) | TextPart::InlineCode(words) => words.clone(),
                 TextPart::Emphasis(text) | TextPart::Strong(text) => text.plain(),
                 TextPart::Reference(reference) => reference.text.plain(),
             })
@@ -177,7 +179,7 @@ impl TextReading for Text {
                     found
                 }
                 TextPart::Emphasis(text) | TextPart::Strong(text) => text.references(),
-                TextPart::Words(_) | TextPart::Code(_) => Vec::new(),
+                TextPart::Words(_) | TextPart::InlineCode(_) => Vec::new(),
             })
             .collect()
     }

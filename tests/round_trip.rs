@@ -1,5 +1,5 @@
 use sema::{
-    Block, Code, Composable, Document, Line, Markdown, Place, Printable, Problem,
+    Block, CodeBlock, Composable, Document, Line, Markdown, Place, Printable, Problem,
     ProgrammingLanguage, Reference, Section, Target, Text, TextPart, Title,
 };
 
@@ -80,7 +80,7 @@ fn runs_are_typed() {
         TextPart::Words(" ".into()),
         TextPart::Strong(words("c")),
         TextPart::Words(" ".into()),
-        TextPart::Code("d".into()),
+        TextPart::InlineCode("d".into()),
         TextPart::Words(" ".into()),
         TextPart::Reference(Reference {
             text: words("e"),
@@ -94,7 +94,7 @@ fn runs_are_typed() {
 #[test]
 fn fence_holds_its_language() {
     let document = composed("```ethos\nLibrary\n[]\n```\n");
-    let expected = Document(vec![Block::Code(Code {
+    let expected = Document(vec![Block::CodeBlock(CodeBlock {
         programming_language: ProgrammingLanguage::Ethos,
         text: words("Library\n[]"),
     })]);

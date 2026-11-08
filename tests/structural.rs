@@ -1,6 +1,6 @@
 use sema::{
-    Code, Composable, Document, Kind, Markdown, Pattern, Place, ProgrammingLanguage, Structural,
-    Text, TextPart,
+    CodeBlock, Composable, Document, Kind, Markdown, Pattern, Place, ProgrammingLanguage,
+    Structural, Text, TextPart,
 };
 
 fn words(text: &str) -> Text {
@@ -22,7 +22,7 @@ fn module() -> Document {
 
 #[test]
 fn code_under_a_section() {
-    let expected = vec![Code {
+    let expected = vec![CodeBlock {
         programming_language: ProgrammingLanguage::Ethos,
         text: words("Signal"),
     }];
@@ -56,7 +56,7 @@ fn search_over_one_kind() {
         vec![place(&["The Belief Nexus"])]
     );
     assert_eq!(
-        module().search(Kind::Code, &pattern("memory")),
+        module().search(Kind::CodeBlocks, &pattern("memory")),
         vec![place(&["The Belief Nexus", "Memory"])]
     );
     assert_eq!(

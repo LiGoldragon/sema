@@ -7,8 +7,8 @@ use comrak::{Arena, Options};
 
 use crate::commonmark::Configured;
 use crate::document::{
-    Block, Code, Depth, Document, Markdown, ProgrammingLanguage, Reference, Row, Section, Target,
-    Text, TextPart, Title,
+    Block, CodeBlock, Depth, Document, Markdown, ProgrammingLanguage, Reference, Row, Section,
+    Target, Text, TextPart, Title,
 };
 use crate::error::{Line, Problem, ReadRefusal};
 
@@ -96,7 +96,7 @@ impl Reading for Reader {
                     true => Text(Vec::new()),
                     false => Text(vec![TextPart::Words(literal.to_string())]),
                 };
-                Block::Code(Code {
+                Block::CodeBlock(CodeBlock {
                     programming_language,
                     text,
                 })
@@ -225,7 +225,7 @@ impl Reading for Reader {
         Ok(match value {
             NodeValue::Text(words) => TextPart::Words(words.to_string()),
             NodeValue::SoftBreak => TextPart::Words("\n".to_string()),
-            NodeValue::Code(NodeCode { literal, .. }) => TextPart::Code(literal),
+            NodeValue::Code(NodeCode { literal, .. }) => TextPart::InlineCode(literal),
             NodeValue::Emph => TextPart::Emphasis(self.text(node)?),
             NodeValue::Strong => TextPart::Strong(self.text(node)?),
             NodeValue::Link(link) if link.title.is_empty() => TextPart::Reference(Reference {

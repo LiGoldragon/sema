@@ -6,7 +6,7 @@ Library
   Section.{ Title Vector<Block> }           ; a heading and what is under it
   Block.[ Statement.Text                    ; a paragraph
           Section
-          Code                              ; a fence; Mermaid is a figure
+          CodeBlock                         ; a fence; Mermaid is a figure
           List.Vector<Block>
           Quote.Vector<Block>
           Table.Vector<Row> ]
@@ -17,15 +17,15 @@ Library
   TextPart.[ Words.String
              Emphasis.Text
              Strong.Text
-             Code.String
+             InlineCode.String                     ; code inside a sentence, between backticks
              Reference ]                    ; a link
-  Code.{ ProgrammingLanguage Text }
+  CodeBlock.{ ProgrammingLanguage Text }   ; a fence: its programming language and its text
   Reference.{ Text Target }
   Target.[ Place Url.String ]
   Place.Vector<Text>                        ; the titles above a block, from the root
   Depth.Integer
   Outline.{ Title Vector<Outline> }
-  Kind.[ Headings Statements Code References ]
+  Kind.[ Headings Statements CodeBlocks References ]
   Pattern.String
   Edit.[ Insert.{ Place Block }
          Replace.{ Place Old.Block New.Block }
@@ -36,7 +36,7 @@ Library
                            Found.Block } ] ]
 ; what is asked of a document
 [ Structural.[ outline.{ [ Depth ] [ Vector<Outline> ] } ; the headings, to a depth: one per top-level section
-               code.{ [ Place ] [ Vector<Code> ] }         ; the code blocks under a section
+               code.{ [ Place ] [ Vector<CodeBlock> ] }    ; the code blocks under a section
                references.{ [ Place ] [ Vector<Reference> ] }
                search.{ [ Kind Pattern ] [ Vector<Place> ] } ; a string search over one kind
                edit!{ [ Edit ] [ Result<Document EditRefusal> ] } ] ]

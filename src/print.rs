@@ -87,7 +87,7 @@ impl<'a> Building<'a> for Builder<'a> {
                     self.block(parent, inner, Depth(depth.0 + 1));
                 }
             }
-            Block::Code(code) => {
+            Block::CodeBlock(code) => {
                 let mut literal = code.text.verbatim();
                 if !literal.is_empty() {
                     literal.push('\n');
@@ -148,7 +148,7 @@ impl<'a> Building<'a> for Builder<'a> {
         for text_part in &text.0 {
             match text_part {
                 TextPart::Words(words) => self.words(parent, words),
-                TextPart::Code(code) => parent.append(self.node(NodeValue::Code(NodeCode {
+                TextPart::InlineCode(code) => parent.append(self.node(NodeValue::Code(NodeCode {
                     num_backticks: 1,
                     literal: code.clone(),
                 }))),
@@ -251,7 +251,7 @@ impl Verbatim for Text {
         self.0
             .iter()
             .map(|text_part| match text_part {
-                TextPart::Words(words) | TextPart::Code(words) => words.clone(),
+                TextPart::Words(words) | TextPart::InlineCode(words) => words.clone(),
                 TextPart::Emphasis(inner) | TextPart::Strong(inner) => inner.verbatim(),
                 TextPart::Reference(reference) => reference.text.verbatim(),
             })
