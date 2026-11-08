@@ -1,8 +1,12 @@
 ; Source: psyche-belief 738727d23ec9e9cc6f37b018f428eee5c6cee057, vision/sema-v0.md
+; Pending the living: Sema v0 schema packet ruled by Psyche core Fable, inferred.
 Library
 [ sema:[ Document ] ]
-[ Markdown.String ]                          ; the text, as it is written
-[ Composable.[ compose.[ Result<Document Error> ] ]
+[ Markdown.String                            ; the text, as it is written
+  ReadRefusal.{ Line.Integer Problem }       ; where reading stopped, and why
+  Problem.[ UnclosedFence
+            Unsupported.String ] ]           ; the construct as written
+[ Composable.[ compose.[ Result<Document ReadRefusal> ] ]
   Printable.[ print.[ Markdown ] ] ]
 [ Markdown.[ Composable ]
   Document.[ Printable ] ]
