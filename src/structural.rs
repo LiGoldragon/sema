@@ -4,8 +4,8 @@
 //! Mismatch names a Found block that no rule yet picks.
 
 use crate::document::{
-    Block, Code, Depth, Document, Kind, Outline, Pattern, Place, Reference, Run, Section, Target,
-    Text,
+    Block, Code, Depth, Document, Kind, Outline, Pattern, Place, Reference, Section, Target, Text,
+    TextPart,
 };
 
 pub trait Structural {
@@ -159,10 +159,10 @@ impl TextReading for Text {
     fn plain(&self) -> String {
         self.0
             .iter()
-            .map(|run| match run {
-                Run::Words(words) | Run::Code(words) => words.clone(),
-                Run::Emphasis(text) | Run::Strong(text) => text.plain(),
-                Run::Reference(reference) => reference.text.plain(),
+            .map(|text_part| match text_part {
+                TextPart::Words(words) | TextPart::Code(words) => words.clone(),
+                TextPart::Emphasis(text) | TextPart::Strong(text) => text.plain(),
+                TextPart::Reference(reference) => reference.text.plain(),
             })
             .collect()
     }
@@ -170,14 +170,14 @@ impl TextReading for Text {
     fn references(&self) -> Vec<Reference> {
         self.0
             .iter()
-            .flat_map(|run| match run {
-                Run::Reference(reference) => {
+            .flat_map(|text_part| match text_part {
+                TextPart::Reference(reference) => {
                     let mut found = vec![reference.clone()];
                     found.extend(reference.text.references());
                     found
                 }
-                Run::Emphasis(text) | Run::Strong(text) => text.references(),
-                Run::Words(_) | Run::Code(_) => Vec::new(),
+                TextPart::Emphasis(text) | TextPart::Strong(text) => text.references(),
+                TextPart::Words(_) | TextPart::Code(_) => Vec::new(),
             })
             .collect()
     }

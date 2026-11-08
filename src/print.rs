@@ -2,7 +2,7 @@
 //! one blank line between blocks, and a newline ending the text.
 
 use crate::compose::ESCAPABLE;
-use crate::document::{Block, Depth, Document, Markdown, Place, Row, Run, Target, Text};
+use crate::document::{Block, Depth, Document, Markdown, Place, Row, Target, Text, TextPart};
 use crate::programming_language::Spelled;
 
 pub trait Printable {
@@ -19,7 +19,7 @@ impl Printable for Document {
     }
 }
 
-/// Where a run of words is printed, which decides what it escapes.
+/// Where words are printed, which decides what it escapes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Surround {
     Prose,
@@ -123,14 +123,17 @@ trait TextRendering {
 
 impl TextRendering for Text {
     fn rendered(&self, surround: Surround) -> String {
-        self.0.iter().map(|run| run.rendered(surround)).collect()
+        self.0
+            .iter()
+            .map(|text_part| text_part.rendered(surround))
+            .collect()
     }
 
     fn verbatim(&self) -> String {
         self.0
             .iter()
-            .map(|run| match run {
-                Run::Words(words) => words.clone(),
+            .map(|text_part| match text_part {
+                TextPart::Words(words) => words.clone(),
                 other => other.rendered(Surround::Prose),
             })
             .collect()
@@ -153,18 +156,18 @@ impl AnchorConversion for Place {
     }
 }
 
-trait RunRendering {
+trait TextPartRendering {
     fn rendered(&self, surround: Surround) -> String;
 }
 
-impl RunRendering for Run {
+impl TextPartRendering for TextPart {
     fn rendered(&self, surround: Surround) -> String {
         match self {
-            Run::Words(words) => words.escaped(surround),
-            Run::Emphasis(text) => format!("*{}*", text.rendered(surround)),
-            Run::Strong(text) => format!("**{}**", text.rendered(surround)),
-            Run::Code(code) => format!("`{code}`"),
-            Run::Reference(reference) => {
+            TextPart::Words(words) => words.escaped(surround),
+            TextPart::Emphasis(text) => format!("*{}*", text.rendered(surround)),
+            TextPart::Strong(text) => format!("**{}**", text.rendered(surround)),
+            TextPart::Code(code) => format!("`{code}`"),
+            TextPart::Reference(reference) => {
                 let target = match &reference.target {
                     Target::Url(url) => url.clone(),
                     Target::Place(place) => place.anchor(),

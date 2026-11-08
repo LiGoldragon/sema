@@ -1,10 +1,10 @@
 use sema::{
-    Code, Composable, Document, Kind, Markdown, Pattern, Place, ProgrammingLanguage, Run,
-    Structural, Text,
+    Code, Composable, Document, Kind, Markdown, Pattern, Place, ProgrammingLanguage, Structural,
+    Text, TextPart,
 };
 
 fn words(text: &str) -> Text {
-    Text(vec![Run::Words(text.to_string())])
+    Text(vec![TextPart::Words(text.to_string())])
 }
 
 fn place(titles: &[&str]) -> Place {

@@ -55,10 +55,10 @@ pub enum ProgrammingLanguage {
 
 /// Inside a paragraph.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Text(pub Vec<Run>);
+pub struct Text(pub Vec<TextPart>);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Run {
+pub enum TextPart {
     Words(String),
     Emphasis(Text),
     Strong(Text),

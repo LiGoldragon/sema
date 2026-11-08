@@ -1,6 +1,6 @@
 use sema::{
     Block, Code, Composable, Document, Line, Markdown, Place, Printable, Problem,
-    ProgrammingLanguage, Reference, Run, Section, Target, Text, Title,
+    ProgrammingLanguage, Reference, Section, Target, Text, TextPart, Title,
 };
 
 fn composed(text: &str) -> Document {
@@ -26,7 +26,7 @@ fn round_trips(text: &str) {
 }
 
 fn words(text: &str) -> Text {
-    Text(vec![Run::Words(text.to_string())])
+    Text(vec![TextPart::Words(text.to_string())])
 }
 
 #[test]
@@ -69,18 +69,18 @@ fn every_fence_spelling_round_trips() {
 fn runs_are_typed() {
     let document = composed("A *b* **c** `d` [e](f) \\* g\n");
     let expected = Document(vec![Block::Statement(Text(vec![
-        Run::Words("A ".into()),
-        Run::Emphasis(words("b")),
-        Run::Words(" ".into()),
-        Run::Strong(words("c")),
-        Run::Words(" ".into()),
-        Run::Code("d".into()),
-        Run::Words(" ".into()),
-        Run::Reference(Reference {
+        TextPart::Words("A ".into()),
+        TextPart::Emphasis(words("b")),
+        TextPart::Words(" ".into()),
+        TextPart::Strong(words("c")),
+        TextPart::Words(" ".into()),
+        TextPart::Code("d".into()),
+        TextPart::Words(" ".into()),
+        TextPart::Reference(Reference {
             text: words("e"),
             target: Target::Url("f".into()),
         }),
-        Run::Words(" * g".into()),
+        TextPart::Words(" * g".into()),
     ]))]);
     assert_eq!(document, expected);
 }
@@ -135,7 +135,7 @@ fn an_unclosed_fence_is_its_own_problem() {
 }
 
 fn holding_a_place() -> Document {
-    Document(vec![Block::Statement(Text(vec![Run::Reference(
+    Document(vec![Block::Statement(Text(vec![TextPart::Reference(
         Reference {
             text: words("see"),
             target: Target::Place(Place(vec![words("The Belief Nexus"), words("Signal")])),

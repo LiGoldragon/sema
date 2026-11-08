@@ -1,7 +1,7 @@
 use sema::module::{Composable as _, Printable as _};
 use sema::{
     Block, Composable, Dependencies, Description, Document, FrontMatter, FrontMatterField, Line,
-    Markdown, Module, ModuleName, ModuleText, Placement, Problem, Run, Text,
+    Markdown, Module, ModuleName, ModuleText, Placement, Problem, Text, TextPart,
 };
 
 fn module(text: &str) -> Result<Module, (Line, Problem)> {
@@ -27,7 +27,7 @@ fn a_module_reads_front_then_document() {
             ]),
             placement_option: Some(Placement::SystemPrompt),
         },
-        document: Document(vec![Block::Statement(Text(vec![Run::Words(
+        document: Document(vec![Block::Statement(Text(vec![TextPart::Words(
             "A statement.".into(),
         )]))]),
     };

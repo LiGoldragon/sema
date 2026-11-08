@@ -2,8 +2,8 @@
 //! printer writes, and refuses, with the line, what the Document cannot hold.
 
 use crate::document::{
-    Block, Code, Depth, Document, Markdown, ProgrammingLanguage, Reference, Row, Run, Section,
-    Target, Text, Title,
+    Block, Code, Depth, Document, Markdown, ProgrammingLanguage, Reference, Row, Section, Target,
+    Text, TextPart, Title,
 };
 use crate::error::{Line, Problem, ReadRefusal};
 
@@ -231,7 +231,7 @@ impl Reading for Region<'_> {
         let content = &self.lines[index + 1..close];
         let text = match content.is_empty() {
             true => Text(Vec::new()),
-            false => Text(vec![Run::Words(content.join("\n"))]),
+            false => Text(vec![TextPart::Words(content.join("\n"))]),
         };
         Ok((
             Block::Code(Code {
@@ -410,10 +410,10 @@ impl Cells for str {
     }
 }
 
-/// The characters a backslash escapes inside a run of words.
+/// The characters a backslash escapes inside words.
 pub(crate) const ESCAPABLE: [char; 5] = ['\\', '*', '`', '[', ']'];
 
-/// What closes the runs being read.
+/// What closes the text parts being read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Closer {
     Emphasis,
@@ -421,7 +421,7 @@ enum Closer {
     Reference,
 }
 
-/// The inside of a paragraph, a title or a cell, read into runs.
+/// The inside of a paragraph, a title or a cell, read into text parts.
 struct Inline<'a> {
     characters: Vec<char>,
     position: usize,
@@ -432,7 +432,7 @@ struct Inline<'a> {
 trait RunReading<'a> {
     fn new(text: &str, line: Line, source: &'a [String]) -> Self;
     fn text(self) -> Result<Text, ReadRefusal>;
-    fn runs(&mut self, closer: Option<Closer>) -> Result<Text, ReadRefusal>;
+    fn text_parts(&mut self, closer: Option<Closer>) -> Result<Text, ReadRefusal>;
     fn reference(&mut self) -> Option<Reference>;
     fn at(&self, offset: usize) -> Option<char>;
     fn refused(&self) -> ReadRefusal;
@@ -449,23 +449,23 @@ impl<'a> RunReading<'a> for Inline<'a> {
     }
 
     fn text(mut self) -> Result<Text, ReadRefusal> {
-        self.runs(None)
+        self.text_parts(None)
     }
 
-    fn runs(&mut self, closer: Option<Closer>) -> Result<Text, ReadRefusal> {
-        let mut runs = Vec::new();
+    fn text_parts(&mut self, closer: Option<Closer>) -> Result<Text, ReadRefusal> {
+        let mut text_parts = Vec::new();
         let mut words = String::new();
-        let flush = |words: &mut String, runs: &mut Vec<Run>| {
+        let flush = |words: &mut String, text_parts: &mut Vec<TextPart>| {
             if !words.is_empty() {
-                runs.push(Run::Words(std::mem::take(words)));
+                text_parts.push(TextPart::Words(std::mem::take(words)));
             }
         };
         loop {
             let Some(character) = self.at(0) else {
                 return match closer {
                     None => {
-                        flush(&mut words, &mut runs);
-                        Ok(Text(runs))
+                        flush(&mut words, &mut text_parts);
+                        Ok(Text(text_parts))
                     }
                     Some(Closer::Emphasis) => Err(self.refused()),
                     Some(Closer::Strong) => Err(self.refused()),
@@ -497,8 +497,8 @@ impl<'a> RunReading<'a> for Inline<'a> {
                         .ok_or_else(|| self.refused())?;
                     let code: String = self.characters[self.position + 1..close].iter().collect();
                     self.line = Line(self.line.0 + code.matches('\n').count() as i64);
-                    flush(&mut words, &mut runs);
-                    runs.push(Run::Code(code));
+                    flush(&mut words, &mut text_parts);
+                    text_parts.push(TextPart::Code(code));
                     self.position = close + 1;
                 }
                 '*' => {
@@ -508,25 +508,25 @@ impl<'a> RunReading<'a> for Inline<'a> {
                         false => (Closer::Emphasis, 1),
                     };
                     self.position += width;
-                    flush(&mut words, &mut runs);
+                    flush(&mut words, &mut text_parts);
                     if closer == Some(own) {
-                        return Ok(Text(runs));
+                        return Ok(Text(text_parts));
                     }
-                    let inner = self.runs(Some(own))?;
-                    runs.push(match strong {
-                        true => Run::Strong(inner),
-                        false => Run::Emphasis(inner),
+                    let inner = self.text_parts(Some(own))?;
+                    text_parts.push(match strong {
+                        true => TextPart::Strong(inner),
+                        false => TextPart::Emphasis(inner),
                     });
                 }
                 ']' if closer == Some(Closer::Reference) => {
                     self.position += 1;
-                    flush(&mut words, &mut runs);
-                    return Ok(Text(runs));
+                    flush(&mut words, &mut text_parts);
+                    return Ok(Text(text_parts));
                 }
                 '[' => match self.reference() {
                     Some(reference) => {
-                        flush(&mut words, &mut runs);
-                        runs.push(Run::Reference(reference));
+                        flush(&mut words, &mut text_parts);
+                        text_parts.push(TextPart::Reference(reference));
                     }
                     None => {
                         words.push('[');
@@ -546,7 +546,7 @@ impl<'a> RunReading<'a> for Inline<'a> {
     fn reference(&mut self) -> Option<Reference> {
         let (position, line) = (self.position, self.line);
         self.position += 1;
-        let text = self.runs(Some(Closer::Reference)).ok();
+        let text = self.text_parts(Some(Closer::Reference)).ok();
         let close = (self.at(0) == Some('('))
             .then(|| {
                 (self.position + 1..self.characters.len())
