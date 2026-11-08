@@ -5,29 +5,42 @@ use crate::document::{
     Block, Code_Data, Depth, Document, Language, Markdown, Reference_Data, Row, Run, Section,
     Target, Text, Title,
 };
-use crate::error::{Construct, Delimiter, Error, Line, Problem};
+use crate::error::{Line, Problem, ReadRefusal};
 
 pub trait Composable {
-    fn compose(&self) -> Result<Document, Error>;
+    fn compose(&self) -> Result<Document, ReadRefusal>;
 }
 
 impl Composable for Markdown {
-    fn compose(&self) -> Result<Document, Error> {
+    fn compose(&self) -> Result<Document, ReadRefusal> {
+        let lines: Vec<String> = self.0.split('\n').map(str::to_string).collect();
         let region = Region {
-            lines: self.0.split('\n').map(str::to_string).collect(),
+            lines: lines.clone(),
             first: Line(1),
+            source: &lines,
         };
-        match region.lines.first().map(String::as_str) {
-            Some("---") => Err(region.error(0, Problem::FrontMatter)),
+        match lines.first().map(String::as_str) {
+            Some("---") => Err(region.refused(0)),
             _ => region.blocks().map(Document),
         }
     }
 }
 
 /// Lines read as one container: the document, a list item or a quote.
-struct Region {
-    lines: Vec<String>,
-    first: Line,
+pub(crate) struct Region<'a> {
+    pub(crate) lines: Vec<String>,
+    pub(crate) first: Line,
+    /// Every line of the text as written, for what a refusal carries.
+    pub(crate) source: &'a [String],
+}
+
+/// The forms a line can open that the Document has no place for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Construct {
+    ThematicBreak,
+    TildeFence,
+    ListMarker,
+    OrderedList,
 }
 
 /// What a line opens when a block begins on it.
@@ -89,7 +102,7 @@ impl Opens for str {
 }
 
 /// A heading or a block, before headings are nested into sections.
-enum Piece {
+pub(crate) enum Piece {
     Heading(Depth, Title, Line),
     Block(Block),
 }
@@ -101,21 +114,22 @@ struct Open {
     block_vector: Vec<Block>,
 }
 
-trait Reading {
-    fn blocks(&self) -> Result<Vec<Block>, Error>;
-    fn pieces(&self) -> Result<Vec<Piece>, Error>;
-    fn heading(&self, index: usize, depth: Depth) -> Result<Piece, Error>;
-    fn fence(&self, index: usize) -> Result<(Block, usize), Error>;
-    fn paragraph(&self, index: usize) -> Result<(Block, usize), Error>;
-    fn list(&self, index: usize) -> Result<(Block, usize), Error>;
-    fn quote(&self, index: usize) -> Result<(Block, usize), Error>;
-    fn table(&self, index: usize) -> Result<(Block, usize), Error>;
+pub(crate) trait Reading {
+    fn blocks(&self) -> Result<Vec<Block>, ReadRefusal>;
+    fn pieces(&self) -> Result<Vec<Piece>, ReadRefusal>;
+    fn heading(&self, index: usize, depth: Depth) -> Result<Piece, ReadRefusal>;
+    fn fence(&self, index: usize) -> Result<(Block, usize), ReadRefusal>;
+    fn paragraph(&self, index: usize) -> Result<(Block, usize), ReadRefusal>;
+    fn list(&self, index: usize) -> Result<(Block, usize), ReadRefusal>;
+    fn quote(&self, index: usize) -> Result<(Block, usize), ReadRefusal>;
+    fn table(&self, index: usize) -> Result<(Block, usize), ReadRefusal>;
     fn line(&self, index: usize) -> Line;
-    fn error(&self, index: usize, problem: Problem) -> Error;
+    fn refused(&self, index: usize) -> ReadRefusal;
+    fn unclosed(&self, index: usize) -> ReadRefusal;
 }
 
-impl Reading for Region {
-    fn blocks(&self) -> Result<Vec<Block>, Error> {
+impl Reading for Region<'_> {
+    fn blocks(&self) -> Result<Vec<Block>, ReadRefusal> {
         let mut root = Vec::new();
         let mut open: Vec<Open> = Vec::new();
         let close = |open: &mut Vec<Open>, root: &mut Vec<Block>| {
@@ -142,13 +156,7 @@ impl Reading for Region {
                     }
                     let above = open.last().map_or(Depth(0), |section| section.depth);
                     if depth.0 != above.0 + 1 {
-                        return Err(Error {
-                            line,
-                            problem: Problem::SkippedDepth {
-                                above,
-                                heading: depth,
-                            },
-                        });
+                        return Err(line.refusal(self.source));
                     }
                     open.push(Open {
                         depth,
@@ -164,7 +172,7 @@ impl Reading for Region {
         Ok(root)
     }
 
-    fn pieces(&self) -> Result<Vec<Piece>, Error> {
+    fn pieces(&self) -> Result<Vec<Piece>, ReadRefusal> {
         let mut pieces = Vec::new();
         let mut index = 0;
         while index < self.lines.len() {
@@ -179,10 +187,10 @@ impl Reading for Region {
                     continue;
                 }
                 Opening::Indented => {
-                    return Err(self.error(index, Problem::Unsupported(Construct::IndentedBlock)));
+                    return Err(self.refused(index));
                 }
-                Opening::Refused(construct) => {
-                    return Err(self.error(index, Problem::Unsupported(construct)));
+                Opening::Refused(_) => {
+                    return Err(self.refused(index));
                 }
                 Opening::Fence => self.fence(index)?,
                 Opening::Item => self.list(index)?,
@@ -196,23 +204,23 @@ impl Reading for Region {
         Ok(pieces)
     }
 
-    fn heading(&self, index: usize, depth: Depth) -> Result<Piece, Error> {
+    fn heading(&self, index: usize, depth: Depth) -> Result<Piece, ReadRefusal> {
         let source = &self.lines[index][depth.0..];
         match source.strip_prefix(' ') {
             Some(title) if !title.is_empty() => {
-                let text = Inline::new(title, self.line(index)).text()?;
+                let text = Inline::new(title, self.line(index), self.source).text()?;
                 Ok(Piece::Heading(depth, Title(text), self.line(index)))
             }
-            _ => Err(self.error(index, Problem::EmptyHeading)),
+            _ => Err(self.refused(index)),
         }
     }
 
-    fn fence(&self, index: usize) -> Result<(Block, usize), Error> {
-        let language = Language::try_from(&self.lines[index][3..])
-            .map_err(|spelling| self.error(index, Problem::UnknownLanguage(spelling)))?;
+    fn fence(&self, index: usize) -> Result<(Block, usize), ReadRefusal> {
+        let language =
+            Language::try_from(&self.lines[index][3..]).map_err(|_| self.refused(index))?;
         let close = (index + 1..self.lines.len())
             .find(|candidate| self.lines[*candidate] == "```")
-            .ok_or_else(|| self.error(index, Problem::UnclosedFence))?;
+            .ok_or_else(|| self.unclosed(index))?;
         let content = &self.lines[index + 1..close];
         let text = match content.is_empty() {
             true => Text(Vec::new()),
@@ -221,26 +229,26 @@ impl Reading for Region {
         Ok((Block::Code(Code_Data { language, text }), close + 1))
     }
 
-    fn paragraph(&self, index: usize) -> Result<(Block, usize), Error> {
+    fn paragraph(&self, index: usize) -> Result<(Block, usize), ReadRefusal> {
         let mut end = index + 1;
         while end < self.lines.len() {
             match self.lines[end].opening() {
                 Opening::Paragraph | Opening::Indented | Opening::Table => end += 1,
                 Opening::Underline | Opening::Refused(Construct::ThematicBreak) => {
-                    return Err(self.error(end, Problem::Unsupported(Construct::SetextHeading)));
+                    return Err(self.refused(end));
                 }
-                Opening::Refused(construct) => {
-                    return Err(self.error(end, Problem::Unsupported(construct)));
+                Opening::Refused(_) => {
+                    return Err(self.refused(end));
                 }
                 _ => break,
             }
         }
         let source = self.lines[index..end].join("\n");
-        let text = Inline::new(&source, self.line(index)).text()?;
+        let text = Inline::new(&source, self.line(index), self.source).text()?;
         Ok((Block::Statement(text), end))
     }
 
-    fn list(&self, index: usize) -> Result<(Block, usize), Error> {
+    fn list(&self, index: usize) -> Result<(Block, usize), ReadRefusal> {
         let mut items = Vec::new();
         let mut cursor = index;
         while cursor < self.lines.len() && self.lines[cursor].opening() == Opening::Item {
@@ -256,9 +264,7 @@ impl Reading for Region {
                         cursor += 1;
                     }
                     Opening::Paragraph | Opening::Indented | Opening::Underline => {
-                        return Err(
-                            self.error(cursor, Problem::Unsupported(Construct::LazyContinuation))
-                        );
+                        return Err(self.refused(cursor));
                     }
                     _ => break,
                 }
@@ -266,17 +272,18 @@ impl Reading for Region {
             let region = Region {
                 lines: content,
                 first: self.line(start),
+                source: self.source,
             };
             let mut blocks = region.blocks()?;
             match blocks.len() {
                 1 => items.extend(blocks.pop()),
-                count => return Err(self.error(start, Problem::ItemBlockCount(count))),
+                _ => return Err(self.refused(start)),
             }
         }
         Ok((Block::List(items), cursor))
     }
 
-    fn quote(&self, index: usize) -> Result<(Block, usize), Error> {
+    fn quote(&self, index: usize) -> Result<(Block, usize), ReadRefusal> {
         let end = (index..self.lines.len())
             .find(|candidate| !self.lines[*candidate].starts_with('>'))
             .unwrap_or(self.lines.len());
@@ -286,7 +293,7 @@ impl Reading for Region {
                 Opening::Paragraph | Opening::Indented
             )
         {
-            return Err(self.error(end, Problem::Unsupported(Construct::LazyContinuation)));
+            return Err(self.refused(end));
         }
         let lines = self.lines[index..end]
             .iter()
@@ -295,11 +302,12 @@ impl Reading for Region {
         let region = Region {
             lines,
             first: self.line(index),
+            source: self.source,
         };
         Ok((Block::Quote(region.blocks()?), end))
     }
 
-    fn table(&self, index: usize) -> Result<(Block, usize), Error> {
+    fn table(&self, index: usize) -> Result<(Block, usize), ReadRefusal> {
         let end = (index..self.lines.len())
             .find(|candidate| !self.lines[*candidate].starts_with('|'))
             .unwrap_or(self.lines.len());
@@ -307,47 +315,57 @@ impl Reading for Region {
             .iter()
             .map(|line| line.as_str().cells())
             .collect();
-        let delimiter = cells
-            .get(1)
-            .ok_or_else(|| self.error(index, Problem::MissingTableDelimiter))?;
+        let delimiter = cells.get(1).ok_or_else(|| self.refused(index))?;
         let dashes = |cell: &&str| !cell.is_empty() && cell.chars().all(|c| c == '-');
-        let aligned = |cell: &&str| !cell.is_empty() && cell.chars().all(|c| c == '-' || c == ':');
         if !delimiter.iter().all(dashes) {
-            let problem = match delimiter.iter().all(aligned) {
-                true => Problem::Unsupported(Construct::TableAlignment),
-                false => Problem::MissingTableDelimiter,
-            };
-            return Err(self.error(index + 1, problem));
+            return Err(self.refused(index + 1));
         }
         let header = cells[0].len();
         let mut rows = Vec::new();
         for (offset, row) in cells.iter().enumerate().filter(|(offset, _)| *offset != 1) {
             if row.len() != header {
-                return Err(self.error(
-                    index + offset,
-                    Problem::RaggedTable {
-                        header,
-                        row: row.len(),
-                    },
-                ));
+                return Err(self.refused(index + offset));
             }
             let texts = row
                 .iter()
-                .map(|cell| Inline::new(cell, self.line(index + offset)).text())
-                .collect::<Result<Vec<Text>, Error>>()?;
+                .map(|cell| Inline::new(cell, self.line(index + offset), self.source).text())
+                .collect::<Result<Vec<Text>, ReadRefusal>>()?;
             rows.push(Row(texts));
         }
         Ok((Block::Table(rows), end))
     }
 
     fn line(&self, index: usize) -> Line {
-        Line(self.first.0 + index)
+        Line(self.first.0 + index as i64)
     }
 
-    fn error(&self, index: usize, problem: Problem) -> Error {
-        Error {
+    fn refused(&self, index: usize) -> ReadRefusal {
+        self.line(index).refusal(self.source)
+    }
+
+    fn unclosed(&self, index: usize) -> ReadRefusal {
+        ReadRefusal {
             line: self.line(index),
-            problem,
+            problem: Problem::UnclosedFence,
+        }
+    }
+}
+
+/// A refusal carrying the line as written.
+pub(crate) trait Refusing {
+    fn refusal(&self, source: &[String]) -> ReadRefusal;
+}
+
+impl Refusing for Line {
+    fn refusal(&self, source: &[String]) -> ReadRefusal {
+        let written = usize::try_from(self.0 - 1)
+            .ok()
+            .and_then(|index| source.get(index))
+            .cloned()
+            .unwrap_or_default();
+        ReadRefusal {
+            line: *self,
+            problem: Problem::Unsupported(written),
         }
     }
 }
@@ -391,35 +409,37 @@ enum Closer {
 }
 
 /// The inside of a paragraph, a title or a cell, read into runs.
-struct Inline {
+struct Inline<'a> {
     characters: Vec<char>,
     position: usize,
     line: Line,
+    source: &'a [String],
 }
 
-trait RunReading {
-    fn new(source: &str, line: Line) -> Self;
-    fn text(self) -> Result<Text, Error>;
-    fn runs(&mut self, closer: Option<Closer>) -> Result<Text, Error>;
+trait RunReading<'a> {
+    fn new(text: &str, line: Line, source: &'a [String]) -> Self;
+    fn text(self) -> Result<Text, ReadRefusal>;
+    fn runs(&mut self, closer: Option<Closer>) -> Result<Text, ReadRefusal>;
     fn reference(&mut self) -> Option<Reference_Data>;
     fn at(&self, offset: usize) -> Option<char>;
-    fn error(&self, problem: Problem) -> Error;
+    fn refused(&self) -> ReadRefusal;
 }
 
-impl RunReading for Inline {
-    fn new(source: &str, line: Line) -> Self {
+impl<'a> RunReading<'a> for Inline<'a> {
+    fn new(text: &str, line: Line, source: &'a [String]) -> Self {
         Inline {
-            characters: source.chars().collect(),
+            characters: text.chars().collect(),
             position: 0,
             line,
+            source,
         }
     }
 
-    fn text(mut self) -> Result<Text, Error> {
+    fn text(mut self) -> Result<Text, ReadRefusal> {
         self.runs(None)
     }
 
-    fn runs(&mut self, closer: Option<Closer>) -> Result<Text, Error> {
+    fn runs(&mut self, closer: Option<Closer>) -> Result<Text, ReadRefusal> {
         let mut runs = Vec::new();
         let mut words = String::new();
         let flush = |words: &mut String, runs: &mut Vec<Run>| {
@@ -434,15 +454,9 @@ impl RunReading for Inline {
                         flush(&mut words, &mut runs);
                         Ok(Text(runs))
                     }
-                    Some(Closer::Emphasis) => {
-                        Err(self.error(Problem::UnclosedRun(Delimiter::Emphasis)))
-                    }
-                    Some(Closer::Strong) => {
-                        Err(self.error(Problem::UnclosedRun(Delimiter::Strong)))
-                    }
-                    Some(Closer::Reference) => {
-                        Err(self.error(Problem::UnclosedRun(Delimiter::Reference)))
-                    }
+                    Some(Closer::Emphasis) => Err(self.refused()),
+                    Some(Closer::Strong) => Err(self.refused()),
+                    Some(Closer::Reference) => Err(self.refused()),
                 };
             };
             match character {
@@ -463,13 +477,13 @@ impl RunReading for Inline {
                 }
                 '`' => {
                     if self.at(1) == Some('`') {
-                        return Err(self.error(Problem::Unsupported(Construct::DoubleBacktick)));
+                        return Err(self.refused());
                     }
                     let close = (self.position + 1..self.characters.len())
                         .find(|candidate| self.characters[*candidate] == '`')
-                        .ok_or_else(|| self.error(Problem::UnclosedRun(Delimiter::Code)))?;
+                        .ok_or_else(|| self.refused())?;
                     let code: String = self.characters[self.position + 1..close].iter().collect();
-                    self.line = Line(self.line.0 + code.matches('\n').count());
+                    self.line = Line(self.line.0 + code.matches('\n').count() as i64);
                     flush(&mut words, &mut runs);
                     runs.push(Run::Code(code));
                     self.position = close + 1;
@@ -529,7 +543,7 @@ impl RunReading for Inline {
         match (text, close) {
             (Some(text), Some(close)) => {
                 let url: String = self.characters[self.position + 1..close].iter().collect();
-                self.line = Line(self.line.0 + url.matches('\n').count());
+                self.line = Line(self.line.0 + url.matches('\n').count() as i64);
                 self.position = close + 1;
                 Some(Reference_Data {
                     text,
@@ -548,10 +562,7 @@ impl RunReading for Inline {
         self.characters.get(self.position + offset).copied()
     }
 
-    fn error(&self, problem: Problem) -> Error {
-        Error {
-            line: self.line,
-            problem,
-        }
+    fn refused(&self) -> ReadRefusal {
+        self.line.refusal(self.source)
     }
 }

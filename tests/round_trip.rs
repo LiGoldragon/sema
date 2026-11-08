@@ -1,6 +1,6 @@
 use sema::{
-    Block, Code_Data, Composable, Construct, Delimiter, Depth, Document, Language, Line, Markdown,
-    Place, Printable, Problem, Reference_Data, Run, Section, Target, Text, Title,
+    Block, Code_Data, Composable, Document, Language, Line, Markdown, Place, Printable, Problem,
+    Reference_Data, Run, Section, Target, Text, Title,
 };
 
 fn composed(text: &str) -> Document {
@@ -88,71 +88,35 @@ fn canonical_text_round_trips_byte_for_byte() {
     );
 }
 
+fn unsupported(line: i64, written: &str) -> (Line, Problem) {
+    (Line(line), Problem::Unsupported(written.to_string()))
+}
+
 #[test]
-fn front_matter_is_refused() {
+fn front_matter_is_refused_as_a_document() {
     assert_eq!(
         refused("---\ndescription: x\n---\n\nBody.\n"),
-        (Line(1), Problem::FrontMatter)
+        unsupported(1, "---")
     );
 }
 
 #[test]
-fn skipped_depth_is_refused() {
-    assert_eq!(
-        refused("# A\n\n### C\n"),
-        (
-            Line(3),
-            Problem::SkippedDepth {
-                above: Depth(1),
-                heading: Depth(3)
-            }
-        )
-    );
+fn refusals_carry_the_line_as_written() {
+    assert_eq!(refused("# A\n\n### C\n"), unsupported(3, "### C"));
+    assert_eq!(refused("```sh\nls\n```\n"), unsupported(1, "```sh"));
+    assert_eq!(refused("Para\n2 * 3\n"), unsupported(2, "2 * 3"));
+    assert_eq!(refused("1. one\n"), unsupported(1, "1. one"));
+    assert_eq!(refused("Title\n---\n"), unsupported(2, "---"));
+    assert_eq!(refused("- a\nlazy\n"), unsupported(2, "lazy"));
+    assert_eq!(refused("> a\n> 2 * 3\n"), unsupported(2, "> 2 * 3"));
 }
 
 #[test]
-fn unknown_language_is_refused() {
+fn an_unclosed_fence_is_its_own_problem() {
     assert_eq!(
-        refused("```sh\nls\n```\n"),
-        (Line(1), Problem::UnknownLanguage("sh".into()))
+        refused("Para.\n\n```rust\nfn x\n"),
+        (Line(3), Problem::UnclosedFence)
     );
-}
-
-#[test]
-fn unclosed_emphasis_is_refused() {
-    assert_eq!(
-        refused("Para\n2 * 3\n"),
-        (Line(2), Problem::UnclosedRun(Delimiter::Emphasis))
-    );
-}
-
-#[test]
-fn unsupported_forms_are_refused() {
-    assert_eq!(
-        refused("1. one\n"),
-        (Line(1), Problem::Unsupported(Construct::OrderedList))
-    );
-    assert_eq!(
-        refused("Title\n---\n"),
-        (Line(2), Problem::Unsupported(Construct::SetextHeading))
-    );
-    assert_eq!(
-        refused("- a\nlazy\n"),
-        (Line(2), Problem::Unsupported(Construct::LazyContinuation))
-    );
-}
-
-#[test]
-fn anchors_read_as_url() {
-    let document = composed("[see](#the-belief-nexus)\n");
-    let expected = Document(vec![Block::Statement(Text(vec![Run::Reference(
-        Reference_Data {
-            text: words("see"),
-            target: Target::Url("#the-belief-nexus".into()),
-        },
-    )]))]);
-    assert_eq!(document, expected);
-    round_trips("[see](#the-belief-nexus)\n");
 }
 
 fn holding_a_place() -> Document {

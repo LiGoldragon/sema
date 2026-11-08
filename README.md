@@ -12,8 +12,15 @@ Vision source: `psyche-belief` revision `738727d23ec9e9cc6f37b018f428eee5c6cee05
   ignored, in `tests/round_trip.rs`.
 - Markdown link targets, anchors included, are read and printed as
   `Target.Url` (Fable ruling, inferred, pending the living).
-- A module's front matter is refused; `Module.{ Front Document }` is pending
-  the living. `sema body <path>` sets front matter aside as a test harness only.
+- A whole module reads as `Module.{ Front Document }` (`sema module <path>`;
+  Fable ruling, inferred, pending the living). The front matter is read as
+  the three fields of Front, in any order, each in the plain one-line form,
+  and printed back canonically in the type's order; any other front-matter
+  line is refused as `Unsupported`, carrying that line. Source bytes are kept
+  only when the source is already canonical.
+- Reading refuses with `ReadRefusal.{ Line Problem }` as ruled:
+  `UnclosedFence`, or `Unsupported` carrying the line as written. A Document
+  alone still refuses front matter.
 - `Structural` implements `code`, `references` and `search` by hand.
   `outline` is not implemented: its root, for a document of other than one
   top-level section, is not stated. `edit` is not implemented: its `Refusal`

@@ -1,70 +1,33 @@
-//! What reading Markdown refuses, and where. Each problem names a text the
-//! Document cannot hold as it was written; the line is where it starts.
+//! Why reading Markdown stopped, as ethos/markdown.ethos declares it (ruled by
+//! Psyche core Fable, inferred, pending the living).
 
-use crate::document::Depth;
-
+/// Where reading stopped, and why.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Error {
+pub struct ReadRefusal {
     pub line: Line,
     pub problem: Problem,
 }
 
-/// A line of the Markdown, counted from one.
+/// A line of the text, counted from one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Line(pub usize);
+pub struct Line(pub i64);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Problem {
-    /// The text opens with a front-matter delimiter; a Document is a body alone.
-    FrontMatter,
-    /// A heading more than one level under the section it would open in.
-    SkippedDepth {
-        above: Depth,
-        heading: Depth,
-    },
-    EmptyHeading,
-    /// A fence whose info string names no Language.
-    UnknownLanguage(String),
     UnclosedFence,
-    UnclosedRun(Delimiter),
-    /// A list item holds exactly one block; this one held the count given.
-    ItemBlockCount(usize),
-    /// A table row whose cell count differs from its header's.
-    RaggedTable {
-        header: usize,
-        row: usize,
-    },
-    /// A table whose second line is not a delimiter row.
-    MissingTableDelimiter,
-    Unsupported(Construct),
+    /// The construct as written: the line it stands on.
+    Unsupported(String),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Delimiter {
-    Emphasis,
-    Strong,
-    Code,
-    Reference,
-}
-
-/// Markdown forms the Document has no place for.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Construct {
-    ThematicBreak,
-    SetextHeading,
-    OrderedList,
-    ListMarker,
-    IndentedBlock,
-    TildeFence,
-    DoubleBacktick,
-    TableAlignment,
-    LazyContinuation,
-}
-
-impl std::fmt::Display for Error {
+impl std::fmt::Display for ReadRefusal {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "line {}: {:?}", self.line.0, self.problem)
+        match &self.problem {
+            Problem::UnclosedFence => write!(formatter, "line {}: UnclosedFence", self.line.0),
+            Problem::Unsupported(written) => {
+                write!(formatter, "line {}: Unsupported «{written}»", self.line.0)
+            }
+        }
     }
 }
 
-impl std::error::Error for Error {}
+impl std::error::Error for ReadRefusal {}

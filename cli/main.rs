@@ -1,22 +1,19 @@
-//! sema reads a Markdown file into a Document, prints the tree and the
-//! Markdown printed from it, and compares the two texts.
+//! sema reads a Markdown file, prints the typed tree and the Markdown printed
+//! from it, and compares the printed text with what was read.
 //!
-//! sema document <path>   the whole file is the Markdown
-//! sema body <path>       a front-matter block is set aside first, as a test
-//!                        harness only: a module's front matter is not yet
-//!                        part of the approved Sema v0 contract
+//! sema module <path>     the whole file as a Module: front matter, then body
+//! sema document <path>   the whole file as a Document; front matter is refused
+//! sema body <path>       a test harness: the text after the front matter's
+//!                        closing delimiter line, read as a Document
 
-use sema::{Composable, Markdown, Printable};
+use sema::{Composable, Markdown, ModuleComposable, Printable};
+use std::fmt::Debug;
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
-    let (mode, path) = match arguments.as_slice() {
-        [mode, path] if mode == "document" || mode == "body" => (mode.as_str(), path.as_str()),
-        _ => {
-            eprintln!("usage: sema (document|body) <path>");
-            return ExitCode::from(2);
-        }
+    let [mode, path] = arguments.as_slice() else {
+        return usage();
     };
     let whole = match std::fs::read_to_string(path) {
         Ok(text) => text,
@@ -26,59 +23,73 @@ fn main() -> ExitCode {
         }
     };
     println!("file: {path}, {} bytes", whole.len());
-    let source = match mode {
-        "body" => match whole
-            .strip_prefix("---\n")
-            .and_then(|rest| rest.split_once("\n---\n"))
-        {
-            Some((front, body)) => {
-                println!(
-                    "harness: front matter set aside, {} bytes through its closing delimiter; body {} bytes",
-                    front.len() + "---\n".len() + "\n---\n".len(),
-                    body.len()
-                );
-                body.to_string()
-            }
-            None => {
-                println!("harness: no front matter found; the whole file is the body");
-                whole.clone()
-            }
-        },
-        _ => whole.clone(),
-    };
-    let document = match Markdown(source.clone()).compose() {
-        Ok(document) => document,
-        Err(error) => {
-            println!("refused: {error}");
+    let markdown = Markdown(whole.clone());
+    match mode.as_str() {
+        "module" => report(&whole, markdown.compose_module(), |text| {
+            Markdown(text.to_string()).compose_module()
+        }),
+        "document" => report(&whole, markdown.compose(), |text| {
+            Markdown(text.to_string()).compose()
+        }),
+        "body" => {
+            let body = whole
+                .strip_prefix("---\n")
+                .and_then(|rest| rest.split_once("\n---\n"))
+                .map_or(whole.as_str(), |(_, body)| body);
+            println!(
+                "harness: {} bytes set aside through the closing delimiter line; body {} bytes",
+                whole.len() - body.len(),
+                body.len()
+            );
+            report(body, Markdown(body.to_string()).compose(), |text| {
+                Markdown(text.to_string()).compose()
+            })
+        }
+        _ => usage(),
+    }
+}
+
+fn usage() -> ExitCode {
+    eprintln!("usage: sema (module|document|body) <path>");
+    ExitCode::from(2)
+}
+
+fn report<T: Debug + PartialEq + Printable, E: std::fmt::Display>(
+    source: &str,
+    read: Result<T, E>,
+    again: impl Fn(&str) -> Result<T, E>,
+) -> ExitCode {
+    let tree = match read {
+        Ok(tree) => tree,
+        Err(refusal) => {
+            println!("refused: {refusal}");
             return ExitCode::from(1);
         }
     };
-    println!("--- Document\n{document:#?}");
-    let printed = document.print();
-    println!("--- printed Markdown\n{}", printed.0);
+    println!("--- tree\n{tree:#?}");
+    let printed = tree.print().0;
+    println!("--- printed Markdown\n{printed}");
     println!("--- comparison");
     println!(
-        "source bytes {}, printed bytes {}",
+        "read bytes {}, printed bytes {}",
         source.len(),
-        printed.0.len()
+        printed.len()
     );
-    match source == printed.0 {
+    match source == printed {
         true => println!("bytes: identical"),
         false => {
             let common = source
                 .bytes()
-                .zip(printed.0.bytes())
+                .zip(printed.bytes())
                 .take_while(|(left, right)| left == right)
                 .count();
             println!("bytes: differ, first difference at byte offset {common}");
         }
     }
-    match printed.compose() {
-        Ok(again) if again == document => {
-            println!("tree: printed Markdown composes to an equal Document")
-        }
-        Ok(_) => println!("tree: printed Markdown composes to a different Document"),
-        Err(error) => println!("tree: printed Markdown is refused: {error}"),
+    match again(&printed) {
+        Ok(reread) if reread == tree => println!("tree: the printed text reads back equal"),
+        Ok(_) => println!("tree: the printed text reads back different"),
+        Err(refusal) => println!("tree: the printed text is refused: {refusal}"),
     }
     ExitCode::SUCCESS
 }
