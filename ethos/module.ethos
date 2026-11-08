@@ -1,0 +1,12 @@
+; Source: psyche-belief 738727d23ec9e9cc6f37b018f428eee5c6cee057, vision/sema-v0.md
+; Pending the living: Front ruled by Psyche core Fable, inferred.
+Library
+[ sema:[ Document ] ]                        ; imports
+[ ModuleName.String                          ; types: a module's name, kind:subject, as written in the YAML
+  Placement.[ SystemPrompt Skill ]           ;   where the module is placed
+  Front.{ Description.String                 ;   the front matter, typed; field order is print order
+          Dependencies.Vector<ModuleName>
+          Option<Placement> }
+  Module.{ Front Document } ]                ;   a belief module: its front matter, then its body
+[]                                           ; traits
+[]                                           ; associations
