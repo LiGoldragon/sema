@@ -3,25 +3,28 @@
 Library
 []
 [ Document.Vector<Block>
-  Section.{ Title.Text Vector<Block> }      ; a heading and what is under it
+  Section.{ Title Vector<Block> }           ; a heading and what is under it
   Block.[ Statement.Text                    ; a paragraph
           Section
-          Code.{ Language Text }            ; a fence; Mermaid is a figure
+          Code                              ; a fence; Mermaid is a figure
           List.Vector<Block>
           Quote.Vector<Block>
           Table.Vector<Row> ]
   Row.Vector<Text>
+  Title.Text                                ; a heading's words
   Language.[ Ethos Datom Rust Nix Shell Ini Toml Mermaid Plain ]
   Text.Vector<Run>                          ; inside a paragraph
   Run.[ Words.String
         Emphasis.Text
         Strong.Text
         Code.String
-        Reference.{ Text Target } ]         ; a link
+        Reference ]                         ; a link
+  Code.{ Language Text }
+  Reference.{ Text Target }
   Target.[ Place Url.String ]
   Place.Vector<Text>                        ; the titles above a block, from the root
   Depth.Integer
-  Outline.{ Title.Text Vector<Outline> }
+  Outline.{ Title Vector<Outline> }
   Kind.[ Headings Statements Code References ]
   Pattern.String
   Edit.[ Insert.{ Place Block }
@@ -29,7 +32,7 @@ Library
          Remove.{ Place Block } ]
   EditRefusal.[ NoSuchPlace.Place           ; why an edit is refused: no block at the place,
                 Mismatch.{ Place            ;   or the block found is not the one expected
-                           Old.Block
+                           Expected.Block
                            Found.Block } ] ]
 ; what is asked of a document
 [ Structural.[ outline.{ [ Depth ] [ Vector<Outline> ] } ; the headings, to a depth: one per top-level section
