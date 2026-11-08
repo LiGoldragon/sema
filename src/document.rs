@@ -25,14 +25,14 @@ pub enum Block {
     Statement(Text),
     Section(Section),
     /// A fence; Mermaid is a figure.
-    Code(Code_Data),
+    Code(Code),
     List(Vec<Block>),
     Quote(Vec<Block>),
     Table(Vec<Row>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Code_Data {
+pub struct Code {
     pub language: Language,
     pub text: Text,
 }
@@ -64,11 +64,11 @@ pub enum Run {
     Strong(Text),
     Code(String),
     /// A link.
-    Reference(Reference_Data),
+    Reference(Reference),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Reference_Data {
+pub struct Reference {
     pub text: Text,
     pub target: Target,
 }

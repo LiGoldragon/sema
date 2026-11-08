@@ -34,7 +34,7 @@ Vision source: `psyche-belief` revision `738727d23ec9e9cc6f37b018f428eee5c6cee05
   a front field. A Document
   alone still refuses front matter.
 - `Structural` implements `outline`, `code`, `references` and `search` by hand.
-  `edit` is not implemented: `Mismatch.{ Place Old.Block Found.Block }` names
+  `edit` is not implemented: `Mismatch.{ Place Expected.Block Found.Block }` names
   a Found block, and no rule yet says which block is found when no block at
   the place equals Old.
 - No generated code yet: the living allows a declared type in a capability

@@ -1,6 +1,5 @@
 use sema::{
-    Code_Data, Composable, Document, Kind, Language, Markdown, Pattern, Place, Run, Structural,
-    Text,
+    Code, Composable, Document, Kind, Language, Markdown, Pattern, Place, Run, Structural, Text,
 };
 
 fn words(text: &str) -> Text {
@@ -22,7 +21,7 @@ fn module() -> Document {
 
 #[test]
 fn code_under_a_section() {
-    let expected = vec![Code_Data {
+    let expected = vec![Code {
         language: Language::Ethos,
         text: words("Signal"),
     }];

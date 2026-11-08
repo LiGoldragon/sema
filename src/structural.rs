@@ -4,17 +4,17 @@
 //! Mismatch names a Found block that no rule yet picks.
 
 use crate::document::{
-    Block, Code_Data, Depth, Document, Kind, Outline, Pattern, Place, Reference_Data, Run, Section,
-    Target, Text,
+    Block, Code, Depth, Document, Kind, Outline, Pattern, Place, Reference, Run, Section, Target,
+    Text,
 };
 
 pub trait Structural {
     /// One outline per top-level section, to the depth; empty when there is none.
     fn outline(&self, depth: Depth) -> Vec<Outline>;
     /// The code blocks under a section, its subsections included.
-    fn code(&self, place: &Place) -> Vec<Code_Data>;
+    fn code(&self, place: &Place) -> Vec<Code>;
     /// The links under a section, its subsections and titles included.
-    fn references(&self, place: &Place) -> Vec<Reference_Data>;
+    fn references(&self, place: &Place) -> Vec<Reference>;
     /// The place of each block of the kind whose text holds the pattern; a
     /// heading's place ends in its own title.
     fn search(&self, kind: Kind, pattern: &Pattern) -> Vec<Place>;
@@ -25,7 +25,7 @@ impl Structural for Document {
         self.0.as_slice().outlined(depth)
     }
 
-    fn code(&self, place: &Place) -> Vec<Code_Data> {
+    fn code(&self, place: &Place) -> Vec<Code> {
         self.placed()
             .into_iter()
             .filter(|(above, _)| above.under(place))
@@ -36,7 +36,7 @@ impl Structural for Document {
             .collect()
     }
 
-    fn references(&self, place: &Place) -> Vec<Reference_Data> {
+    fn references(&self, place: &Place) -> Vec<Reference> {
         self.placed()
             .into_iter()
             .filter(|(above, _)| above.under(place))
@@ -152,7 +152,7 @@ impl OwnTexts for Block {
 trait TextReading {
     /// The words of a text without its markup.
     fn plain(&self) -> String;
-    fn references(&self) -> Vec<Reference_Data>;
+    fn references(&self) -> Vec<Reference>;
 }
 
 impl TextReading for Text {
@@ -167,7 +167,7 @@ impl TextReading for Text {
             .collect()
     }
 
-    fn references(&self) -> Vec<Reference_Data> {
+    fn references(&self) -> Vec<Reference> {
         self.0
             .iter()
             .flat_map(|run| match run {

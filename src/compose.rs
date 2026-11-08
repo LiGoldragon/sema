@@ -2,8 +2,8 @@
 //! printer writes, and refuses, with the line, what the Document cannot hold.
 
 use crate::document::{
-    Block, Code_Data, Depth, Document, Language, Markdown, Reference_Data, Row, Run, Section,
-    Target, Text, Title,
+    Block, Code, Depth, Document, Language, Markdown, Reference, Row, Run, Section, Target, Text,
+    Title,
 };
 use crate::error::{Line, Problem, ReadRefusal};
 
@@ -233,7 +233,7 @@ impl Reading for Region<'_> {
             true => Text(Vec::new()),
             false => Text(vec![Run::Words(content.join("\n"))]),
         };
-        Ok((Block::Code(Code_Data { language, text }), close + 1))
+        Ok((Block::Code(Code { language, text }), close + 1))
     }
 
     fn paragraph(&self, index: usize) -> Result<(Block, usize), ReadRefusal> {
@@ -427,7 +427,7 @@ trait RunReading<'a> {
     fn new(text: &str, line: Line, source: &'a [String]) -> Self;
     fn text(self) -> Result<Text, ReadRefusal>;
     fn runs(&mut self, closer: Option<Closer>) -> Result<Text, ReadRefusal>;
-    fn reference(&mut self) -> Option<Reference_Data>;
+    fn reference(&mut self) -> Option<Reference>;
     fn at(&self, offset: usize) -> Option<char>;
     fn refused(&self) -> ReadRefusal;
 }
@@ -537,7 +537,7 @@ impl<'a> RunReading<'a> for Inline<'a> {
 
     /// A link read from the bracket at the position; on any other shape the
     /// position is left where it was and the bracket is words.
-    fn reference(&mut self) -> Option<Reference_Data> {
+    fn reference(&mut self) -> Option<Reference> {
         let (position, line) = (self.position, self.line);
         self.position += 1;
         let text = self.runs(Some(Closer::Reference)).ok();
@@ -552,7 +552,7 @@ impl<'a> RunReading<'a> for Inline<'a> {
                 let url: String = self.characters[self.position + 1..close].iter().collect();
                 self.line = Line(self.line.0 + url.matches('\n').count() as i64);
                 self.position = close + 1;
-                Some(Reference_Data {
+                Some(Reference {
                     text,
                     target: Target::Url(url),
                 })

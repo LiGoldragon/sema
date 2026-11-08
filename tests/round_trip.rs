@@ -1,6 +1,6 @@
 use sema::{
-    Block, Code_Data, Composable, Document, Language, Line, Markdown, Place, Printable, Problem,
-    Reference_Data, Run, Section, Target, Text, Title,
+    Block, Code, Composable, Document, Language, Line, Markdown, Place, Printable, Problem,
+    Reference, Run, Section, Target, Text, Title,
 };
 
 fn composed(text: &str) -> Document {
@@ -76,7 +76,7 @@ fn runs_are_typed() {
         Run::Words(" ".into()),
         Run::Code("d".into()),
         Run::Words(" ".into()),
-        Run::Reference(Reference_Data {
+        Run::Reference(Reference {
             text: words("e"),
             target: Target::Url("f".into()),
         }),
@@ -88,7 +88,7 @@ fn runs_are_typed() {
 #[test]
 fn fence_holds_its_language() {
     let document = composed("```ethos\nLibrary\n[]\n```\n");
-    let expected = Document(vec![Block::Code(Code_Data {
+    let expected = Document(vec![Block::Code(Code {
         language: Language::Ethos,
         text: words("Library\n[]"),
     })]);
@@ -136,7 +136,7 @@ fn an_unclosed_fence_is_its_own_problem() {
 
 fn holding_a_place() -> Document {
     Document(vec![Block::Statement(Text(vec![Run::Reference(
-        Reference_Data {
+        Reference {
             text: words("see"),
             target: Target::Place(Place(vec![words("The Belief Nexus"), words("Signal")])),
         },
