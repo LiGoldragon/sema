@@ -65,3 +65,35 @@ fn search_over_one_kind() {
     );
     assert_eq!(module().search(Kind::Headings, &pattern("Absent")), vec![]);
 }
+
+#[test]
+fn outline_is_one_per_top_level_section() {
+    use sema::{Depth, Outline, Title};
+    let outline = |title: &str, inner: Vec<Outline>| Outline {
+        title: Title(words(title)),
+        outline_vector: inner,
+    };
+    assert_eq!(
+        module().outline(Depth(2)),
+        vec![outline(
+            "The Belief Nexus",
+            vec![outline("Signal", vec![]), outline("Memory", vec![])]
+        )]
+    );
+    assert_eq!(
+        module().outline(Depth(1)),
+        vec![outline("The Belief Nexus", vec![])]
+    );
+    assert_eq!(module().outline(Depth(0)), vec![]);
+    let flat = Markdown("Only a statement.\n".to_string())
+        .compose()
+        .expect("composes");
+    assert_eq!(flat.outline(Depth(3)), vec![]);
+    let two = Markdown("# A\n\n# B\n".to_string())
+        .compose()
+        .expect("composes");
+    assert_eq!(
+        two.outline(Depth(1)),
+        vec![outline("A", vec![]), outline("B", vec![])]
+    );
+}

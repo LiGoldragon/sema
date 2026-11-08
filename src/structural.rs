@@ -1,14 +1,16 @@
 //! What is asked of a document, by the titles above its blocks.
 //!
-//! Implemented: code, references, search. Not yet: outline, whose root for a
-//! document of other than one top-level section is not stated, and edit, whose
-//! Refusal has no declaration.
+//! Implemented: outline, code, references, search. Not yet: edit, whose
+//! Mismatch names a Found block that no rule yet picks.
 
 use crate::document::{
-    Block, Code_Data, Document, Kind, Pattern, Place, Reference_Data, Run, Target, Text,
+    Block, Code_Data, Depth, Document, Kind, Outline, Pattern, Place, Reference_Data, Run, Section,
+    Target, Text,
 };
 
 pub trait Structural {
+    /// One outline per top-level section, to the depth; empty when there is none.
+    fn outline(&self, depth: Depth) -> Vec<Outline>;
     /// The code blocks under a section, its subsections included.
     fn code(&self, place: &Place) -> Vec<Code_Data>;
     /// The links under a section, its subsections and titles included.
@@ -19,6 +21,10 @@ pub trait Structural {
 }
 
 impl Structural for Document {
+    fn outline(&self, depth: Depth) -> Vec<Outline> {
+        self.0.as_slice().outlined(depth)
+    }
+
     fn code(&self, place: &Place) -> Vec<Code_Data> {
         self.placed()
             .into_iter()
@@ -174,5 +180,30 @@ impl TextReading for Text {
                 Run::Words(_) | Run::Code(_) => Vec::new(),
             })
             .collect()
+    }
+}
+
+trait Outlining {
+    fn outlined(&self, depth: Depth) -> Vec<Outline>;
+}
+
+impl Outlining for [Block] {
+    fn outlined(&self, depth: Depth) -> Vec<Outline> {
+        match depth.0 {
+            0 => Vec::new(),
+            _ => self
+                .iter()
+                .filter_map(|block| match block {
+                    Block::Section(Section {
+                        title,
+                        block_vector,
+                    }) => Some(Outline {
+                        title: title.clone(),
+                        outline_vector: block_vector.as_slice().outlined(Depth(depth.0 - 1)),
+                    }),
+                    _ => None,
+                })
+                .collect(),
+        }
     }
 }

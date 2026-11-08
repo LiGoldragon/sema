@@ -12,8 +12,8 @@ mod structural;
 
 pub use compose::Composable;
 pub use document::{
-    Block, Code_Data, Depth, Document, Kind, Language, Markdown, Pattern, Place, Reference_Data,
-    Row, Run, Section, Target, Text, Title,
+    Block, Code_Data, Depth, Document, Kind, Language, Markdown, Outline, Pattern, Place,
+    Reference_Data, Row, Run, Section, Target, Text, Title,
 };
 pub use error::{Line, Problem, ReadRefusal};
 pub use front::ModuleComposable;

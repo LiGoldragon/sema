@@ -21,9 +21,9 @@ Vision source: `psyche-belief` revision `738727d23ec9e9cc6f37b018f428eee5c6cee05
 - Reading refuses with `ReadRefusal.{ Line Problem }` as ruled:
   `UnclosedFence`, or `Unsupported` carrying the line as written. A Document
   alone still refuses front matter.
-- `Structural` implements `code`, `references` and `search` by hand.
-  `outline` is not implemented: its root, for a document of other than one
-  top-level section, is not stated. `edit` is not implemented: its `Refusal`
-  has no declaration.
+- `Structural` implements `outline`, `code`, `references` and `search` by hand.
+  `edit` is not implemented: `Mismatch.{ Place Old.Block Found.Block }` names
+  a Found block, and no rule yet says which block is found when no block at
+  the place equals Old.
 - No generated code yet: Ethos 19.3.1 refuses `document.ethos` (TraitWanted
   Depth) and `markdown.ethos` (Undeclared Error); those questions are routed.

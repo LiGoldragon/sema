@@ -96,3 +96,10 @@ pub enum Kind {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Pattern(pub String);
+
+/// A heading and the headings under it, to a depth.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Outline {
+    pub title: Title,
+    pub outline_vector: Vec<Outline>,
+}
