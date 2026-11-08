@@ -2,7 +2,7 @@
 //! one blank line between blocks, and a newline ending the text.
 
 use crate::compose::ESCAPABLE;
-use crate::document::{Block, Depth, Document, Markdown, Row, Run, Target, Text};
+use crate::document::{Block, Depth, Document, Markdown, Place, Row, Run, Target, Text};
 use crate::language::Spelled;
 
 pub trait Printable {
@@ -137,6 +137,27 @@ impl TextRendering for Text {
     }
 }
 
+/// UNKNOWN, pending judgment. The vision gives `Target.Place`, the titles
+/// above a block from the root, and gives no Markdown form for it: a Markdown
+/// link names an anchor, and neither direction between a Place and an anchor
+/// is stated. The reader never composes a Place. `print.[ Markdown ]` is total,
+/// so a Place handed to the printer is written in this assumed form, `#` and
+/// the titles joined by `/`, which is not approved and is not read back.
+trait ProvisionalTarget {
+    fn provisional_target(&self) -> String;
+}
+
+impl ProvisionalTarget for Place {
+    fn provisional_target(&self) -> String {
+        let titles: Vec<String> = self
+            .0
+            .iter()
+            .map(|title| title.rendered(Surround::Prose))
+            .collect();
+        format!("#{}", titles.join("/"))
+    }
+}
+
 trait RunRendering {
     fn rendered(&self, surround: Surround) -> String;
 }
@@ -151,14 +172,7 @@ impl RunRendering for Run {
             Run::Reference(reference) => {
                 let target = match &reference.target {
                     Target::Url(url) => url.clone(),
-                    Target::Place(place) => {
-                        let titles: Vec<String> = place
-                            .0
-                            .iter()
-                            .map(|title| title.rendered(Surround::Prose))
-                            .collect();
-                        format!("#{}", titles.join("/"))
-                    }
+                    Target::Place(place) => place.provisional_target(),
                 };
                 format!(
                     "[{}]({target})",
