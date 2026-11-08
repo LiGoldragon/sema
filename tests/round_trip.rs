@@ -98,7 +98,7 @@ fn fence_holds_its_language() {
 #[test]
 fn canonical_text_round_trips_byte_for_byte() {
     round_trips(
-        "# Title\n\nA line\nwrapped *across* two.\n\n## Sub\n\n- one\n- two `x`\n\n> quoted\n>\n> again\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n\n```mermaid\nflowchart TB\n```\n\n```\n```\n\nBrackets [stay] plain, snake_case_stays, and \\ too.\n",
+        "# Title\n\nA line\nwrapped *across* two.\n\n## Sub\n\n- one\n- two `x`\n\n> quoted\n> \n> again\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n\n```mermaid\nflowchart TB\n```\n\n```\n```\n\nBrackets [stay] plain, snake_case_stays, and \\ too.\n",
     );
 }
 
@@ -119,11 +119,41 @@ fn refusals_carry_the_line_as_written() {
     assert_eq!(refused("# A\n\n### C\n"), unsupported(3, "### C"));
     assert_eq!(refused("```bash\nls\n```\n"), unsupported(1, "```bash"));
     assert_eq!(refused("## A\n\n# B\n"), unsupported(3, "# B"));
-    assert_eq!(refused("Para\n2 * 3\n"), unsupported(2, "2 * 3"));
     assert_eq!(refused("1. one\n"), unsupported(1, "1. one"));
-    assert_eq!(refused("Title\n---\n"), unsupported(2, "---"));
-    assert_eq!(refused("- a\nlazy\n"), unsupported(2, "lazy"));
-    assert_eq!(refused("> a\n> 2 * 3\n"), unsupported(2, "> 2 * 3"));
+    assert_eq!(refused("Para.\n\n***\n"), unsupported(3, "***"));
+    assert_eq!(refused("<div>\nx\n</div>\n"), unsupported(1, "<div>"));
+    assert_eq!(
+        refused("See ![a](b.png).\n"),
+        unsupported(1, "See ![a](b.png).")
+    );
+    assert_eq!(refused("Hard  \nbreak\n"), unsupported(1, "Hard  "));
+    assert_eq!(refused("[a](b \"t\")\n"), unsupported(1, "[a](b \"t\")"));
+    assert_eq!(refused("- a\n\n  b\n"), unsupported(1, "- a"));
+    assert_eq!(refused("> # A\n"), unsupported(1, "> # A"));
+    assert_eq!(refused("| a |\n| :-- |\n| 1 |\n"), unsupported(1, "| a |"));
+}
+
+/// What the Document has a place for is read, whichever way it is written,
+/// and printed in the one canonical form.
+#[test]
+fn every_spelling_of_a_construct_is_read() {
+    let read = |text: &str| composed(text).print().0;
+    assert_eq!(read("Title\n=====\n\nBody.\n"), "# Title\n\nBody.\n");
+    assert_eq!(read("* a\n* b\n"), "- a\n- b\n");
+    assert_eq!(read("~~~rust\nlet x;\n~~~\n"), "```rust\nlet x;\n```\n");
+    assert_eq!(read("- a\nlazy\n"), "- a\n  lazy\n");
+    assert_eq!(read("Para\n2 * 3\n"), "Para\n2 * 3\n");
+}
+
+#[test]
+fn a_tag_written_in_prose_is_words_printed_as_written() {
+    round_trips("The module vision:<topic> holds it.\n");
+    assert_eq!(
+        composed("The module vision:<topic> holds it.\n"),
+        Document(vec![Block::Statement(words(
+            "The module vision:<topic> holds it."
+        ))])
+    );
 }
 
 #[test]

@@ -1,6 +1,11 @@
-//! Markdown composed into a Document. The reader takes the canonical form the
-//! printer writes, and refuses, with the line, what the Document cannot hold.
+//! Markdown composed into a Document. comrak reads the text into its
+//! CommonMark tree; that tree is walked into the Document, and a construct the
+//! Document has no place for is refused with the line it starts on.
 
+use comrak::nodes::{AstNode, ListType, NodeCode, NodeHeading, NodeValue, TableAlignment};
+use comrak::{Arena, Options};
+
+use crate::commonmark::Configured;
 use crate::document::{
     Block, Code, Depth, Document, Markdown, ProgrammingLanguage, Reference, Row, Section, Target,
     Text, TextPart, Title,
@@ -13,96 +18,18 @@ pub trait Composable {
 
 impl Composable for Markdown {
     fn compose(&self) -> Result<Document, ReadRefusal> {
-        let lines: Vec<String> = self.0.split('\n').map(str::to_string).collect();
-        let region = Region {
-            lines: lines.clone(),
-            first: Line(1),
-            source: &lines,
+        let arena = Arena::new();
+        let root = comrak::parse_document(&arena, &self.0, &Options::sema());
+        let reader = Reader {
+            source: self.0.split('\n').map(str::to_string).collect(),
         };
-        match lines.first().map(String::as_str) {
-            Some("---") => Err(region.refused(0)),
-            _ => region.blocks().map(Document),
-        }
-    }
-}
-
-/// Lines read as one container: the document, a list item or a quote.
-pub(crate) struct Region<'a> {
-    pub(crate) lines: Vec<String>,
-    pub(crate) first: Line,
-    /// Every line of the text as written, for what a refusal carries.
-    pub(crate) source: &'a [String],
-}
-
-/// The forms a line can open that the Document has no place for.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Construct {
-    ThematicBreak,
-    TildeFence,
-    ListMarker,
-    OrderedList,
-}
-
-/// What a line opens when a block begins on it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Opening {
-    Blank,
-    Indented,
-    Heading(Depth),
-    Fence,
-    Item,
-    Quote,
-    Table,
-    Underline,
-    Paragraph,
-    Refused(Construct),
-}
-
-trait Opens {
-    fn opening(&self) -> Opening;
-}
-
-impl Opens for str {
-    fn opening(&self) -> Opening {
-        let hashes = self.chars().take_while(|c| *c == '#').count();
-        let marks: Vec<char> = self.chars().filter(|c| *c != ' ').collect();
-        let ordinal = self.chars().take_while(char::is_ascii_digit).count();
-        if self.trim().is_empty() {
-            Opening::Blank
-        } else if self.starts_with([' ', '\t']) {
-            Opening::Indented
-        } else if (1..=6).contains(&hashes)
-            && (self.len() == hashes || self[hashes..].starts_with(' '))
-        {
-            Opening::Heading(Depth(hashes))
-        } else if self.starts_with("```") {
-            Opening::Fence
-        } else if self.starts_with("~~~") {
-            Opening::Refused(Construct::TildeFence)
-        } else if marks.len() >= 3 && ['-', '*', '_'].iter().any(|m| marks.iter().all(|c| c == m)) {
-            Opening::Refused(Construct::ThematicBreak)
-        } else if self == "-" || self.starts_with("- ") {
-            Opening::Item
-        } else if self.starts_with("* ") || self.starts_with("+ ") {
-            Opening::Refused(Construct::ListMarker)
-        } else if ordinal > 0
-            && (self[ordinal..].starts_with(". ") || self[ordinal..].starts_with(") "))
-        {
-            Opening::Refused(Construct::OrderedList)
-        } else if self.starts_with('>') {
-            Opening::Quote
-        } else if self.starts_with('|') {
-            Opening::Table
-        } else if self.chars().all(|c| c == '=') {
-            Opening::Underline
-        } else {
-            Opening::Paragraph
-        }
+        let pieces = reader.pieces(root)?;
+        reader.nested(pieces).map(Document)
     }
 }
 
 /// A heading or a block, before headings are nested into sections.
-pub(crate) enum Piece {
+enum Piece {
     Heading(Depth, Title, Line),
     Block(Block),
 }
@@ -114,26 +41,85 @@ struct Open {
     block_vector: Vec<Block>,
 }
 
-pub(crate) trait Reading {
-    fn blocks(&self) -> Result<Vec<Block>, ReadRefusal>;
-    fn pieces(&self) -> Result<Vec<Piece>, ReadRefusal>;
-    fn heading(&self, index: usize, depth: Depth) -> Result<Piece, ReadRefusal>;
-    fn fence(&self, index: usize) -> Result<(Block, usize), ReadRefusal>;
-    fn paragraph(&self, index: usize) -> Result<(Block, usize), ReadRefusal>;
-    fn list(&self, index: usize) -> Result<(Block, usize), ReadRefusal>;
-    fn quote(&self, index: usize) -> Result<(Block, usize), ReadRefusal>;
-    fn table(&self, index: usize) -> Result<(Block, usize), ReadRefusal>;
-    fn line(&self, index: usize) -> Line;
-    fn refused(&self, index: usize) -> ReadRefusal;
-    fn unclosed(&self, index: usize) -> ReadRefusal;
+/// The walk from comrak's tree into the Document, holding the text as written
+/// for what a refusal carries.
+struct Reader {
+    source: Vec<String>,
 }
 
-impl Reading for Region<'_> {
-    fn blocks(&self) -> Result<Vec<Block>, ReadRefusal> {
+type Node<'a> = &'a AstNode<'a>;
+
+trait Reading {
+    fn pieces<'a>(&self, container: Node<'a>) -> Result<Vec<Piece>, ReadRefusal>;
+    fn piece<'a>(&self, node: Node<'a>) -> Result<Piece, ReadRefusal>;
+    fn nested(&self, pieces: Vec<Piece>) -> Result<Vec<Block>, ReadRefusal>;
+    /// The blocks of a list item or a quote, where a heading has no place.
+    fn contained<'a>(&self, container: Node<'a>) -> Result<Vec<Block>, ReadRefusal>;
+    fn list<'a>(&self, list: Node<'a>) -> Result<Block, ReadRefusal>;
+    fn table<'a>(&self, table: Node<'a>) -> Result<Block, ReadRefusal>;
+    fn text<'a>(&self, container: Node<'a>) -> Result<Text, ReadRefusal>;
+    fn text_part<'a>(&self, node: Node<'a>) -> Result<TextPart, ReadRefusal>;
+    fn refused<'a>(&self, node: Node<'a>) -> ReadRefusal;
+}
+
+trait Located {
+    fn line(&self) -> Line;
+}
+
+impl Located for AstNode<'_> {
+    fn line(&self) -> Line {
+        Line(self.data.borrow().sourcepos.start.line as i64)
+    }
+}
+
+impl Reading for Reader {
+    fn pieces<'a>(&self, container: Node<'a>) -> Result<Vec<Piece>, ReadRefusal> {
+        container.children().map(|node| self.piece(node)).collect()
+    }
+
+    fn piece<'a>(&self, node: Node<'a>) -> Result<Piece, ReadRefusal> {
+        let value = node.data.borrow().value.clone();
+        let block = match value {
+            NodeValue::Heading(NodeHeading { level, .. }) => {
+                return Ok(Piece::Heading(
+                    Depth(level as usize),
+                    Title(self.text(node)?),
+                    node.line(),
+                ));
+            }
+            NodeValue::Paragraph => Block::Statement(self.text(node)?),
+            NodeValue::CodeBlock(code) if !code.closed && code.fenced => {
+                return Err(ReadRefusal {
+                    line: node.line(),
+                    problem: Problem::UnclosedFence,
+                });
+            }
+            NodeValue::CodeBlock(code) => {
+                let programming_language = ProgrammingLanguage::try_from(code.info.as_str())
+                    .map_err(|_| self.refused(node))?;
+                let literal = code.literal.strip_suffix('\n').unwrap_or(&code.literal);
+                let text = match literal.is_empty() {
+                    true => Text(Vec::new()),
+                    false => Text(vec![TextPart::Words(literal.to_string())]),
+                };
+                Block::Code(Code {
+                    programming_language,
+                    text,
+                })
+            }
+            NodeValue::List(list) if list.list_type == ListType::Bullet => self.list(node)?,
+            NodeValue::BlockQuote => Block::Quote(self.contained(node)?),
+            NodeValue::Table(_) => self.table(node)?,
+            _ => return Err(self.refused(node)),
+        };
+        Ok(Piece::Block(block))
+    }
+
+    /// Depth is the nesting, read relative: the first heading's level is the
+    /// top and each deeper level a child.
+    fn nested(&self, pieces: Vec<Piece>) -> Result<Vec<Block>, ReadRefusal> {
         let mut root = Vec::new();
         let mut open: Vec<Open> = Vec::new();
-        // The first heading's level is the top; a deeper level is a child.
-        let mut top: Option<Depth> = None;
         let close = |open: &mut Vec<Open>, root: &mut Vec<Block>| {
             if let Some(section) = open.pop() {
                 let block = Block::Section(Section {
@@ -146,7 +132,8 @@ impl Reading for Region<'_> {
                 }
             }
         };
-        for piece in self.pieces()? {
+        let mut top: Option<Depth> = None;
+        for piece in pieces {
             match piece {
                 Piece::Block(block) => match open.last_mut() {
                     Some(section) => section.block_vector.push(block),
@@ -154,8 +141,8 @@ impl Reading for Region<'_> {
                 },
                 Piece::Heading(written, title, line) => {
                     let top = *top.get_or_insert(written);
-                    if written.0 < top.0 {
-                        return Err(line.refusal(self.source));
+                    if written < top {
+                        return Err(line.refusal(&self.source));
                     }
                     let depth = Depth(written.0 - top.0 + 1);
                     while open.last().is_some_and(|section| section.depth >= depth) {
@@ -163,7 +150,7 @@ impl Reading for Region<'_> {
                     }
                     let above = open.last().map_or(Depth(0), |section| section.depth);
                     if depth.0 != above.0 + 1 {
-                        return Err(line.refusal(self.source));
+                        return Err(line.refusal(&self.source));
                     }
                     open.push(Open {
                         depth,
@@ -179,188 +166,83 @@ impl Reading for Region<'_> {
         Ok(root)
     }
 
-    fn pieces(&self) -> Result<Vec<Piece>, ReadRefusal> {
-        let mut pieces = Vec::new();
-        let mut index = 0;
-        while index < self.lines.len() {
-            let (block, next) = match self.lines[index].opening() {
-                Opening::Blank => {
-                    index += 1;
-                    continue;
-                }
-                Opening::Heading(depth) => {
-                    pieces.push(self.heading(index, depth)?);
-                    index += 1;
-                    continue;
-                }
-                Opening::Indented => {
-                    return Err(self.refused(index));
-                }
-                Opening::Refused(_) => {
-                    return Err(self.refused(index));
-                }
-                Opening::Fence => self.fence(index)?,
-                Opening::Item => self.list(index)?,
-                Opening::Quote => self.quote(index)?,
-                Opening::Table => self.table(index)?,
-                Opening::Underline | Opening::Paragraph => self.paragraph(index)?,
-            };
-            pieces.push(Piece::Block(block));
-            index = next;
-        }
-        Ok(pieces)
+    fn contained<'a>(&self, container: Node<'a>) -> Result<Vec<Block>, ReadRefusal> {
+        self.pieces(container)?
+            .into_iter()
+            .map(|piece| match piece {
+                Piece::Block(block) => Ok(block),
+                Piece::Heading(_, _, line) => Err(line.refusal(&self.source)),
+            })
+            .collect()
     }
 
-    fn heading(&self, index: usize, depth: Depth) -> Result<Piece, ReadRefusal> {
-        let source = &self.lines[index][depth.0..];
-        match source.strip_prefix(' ') {
-            Some(title) if !title.is_empty() => {
-                let text = Inline::new(title, self.line(index), self.source).text()?;
-                Ok(Piece::Heading(depth, Title(text), self.line(index)))
-            }
-            _ => Err(self.refused(index)),
-        }
-    }
-
-    fn fence(&self, index: usize) -> Result<(Block, usize), ReadRefusal> {
-        let programming_language = ProgrammingLanguage::try_from(&self.lines[index][3..])
-            .map_err(|_| self.refused(index))?;
-        let close = (index + 1..self.lines.len())
-            .find(|candidate| self.lines[*candidate] == "```")
-            .ok_or_else(|| self.unclosed(index))?;
-        let content = &self.lines[index + 1..close];
-        let text = match content.is_empty() {
-            true => Text(Vec::new()),
-            false => Text(vec![TextPart::Words(content.join("\n"))]),
-        };
-        Ok((
-            Block::Code(Code {
-                programming_language,
-                text,
-            }),
-            close + 1,
-        ))
-    }
-
-    fn paragraph(&self, index: usize) -> Result<(Block, usize), ReadRefusal> {
-        let mut end = index + 1;
-        while end < self.lines.len() {
-            match self.lines[end].opening() {
-                Opening::Paragraph | Opening::Indented | Opening::Table => end += 1,
-                Opening::Underline | Opening::Refused(Construct::ThematicBreak) => {
-                    return Err(self.refused(end));
+    /// A list item holds one block.
+    fn list<'a>(&self, list: Node<'a>) -> Result<Block, ReadRefusal> {
+        let items = list
+            .children()
+            .map(|item| {
+                let mut blocks = self.contained(item)?;
+                match blocks.len() {
+                    1 => Ok(blocks.remove(0)),
+                    _ => Err(self.refused(item)),
                 }
-                Opening::Refused(_) => {
-                    return Err(self.refused(end));
-                }
-                _ => break,
-            }
-        }
-        let source = self.lines[index..end].join("\n");
-        let text = Inline::new(&source, self.line(index), self.source).text()?;
-        Ok((Block::Statement(text), end))
+            })
+            .collect::<Result<Vec<Block>, ReadRefusal>>()?;
+        Ok(Block::List(items))
     }
 
-    fn list(&self, index: usize) -> Result<(Block, usize), ReadRefusal> {
-        let mut items = Vec::new();
-        let mut cursor = index;
-        while cursor < self.lines.len() && self.lines[cursor].opening() == Opening::Item {
-            let start = cursor;
-            let mut content = vec![self.lines[cursor].get(2..).unwrap_or("").to_string()];
-            cursor += 1;
-            while cursor < self.lines.len() {
-                let line = &self.lines[cursor];
-                match line.opening() {
-                    Opening::Blank | Opening::Item => break,
-                    _ if line.starts_with("  ") => {
-                        content.push(line[2..].to_string());
-                        cursor += 1;
-                    }
-                    Opening::Paragraph | Opening::Indented | Opening::Underline => {
-                        return Err(self.refused(cursor));
-                    }
-                    _ => break,
-                }
-            }
-            let region = Region {
-                lines: content,
-                first: self.line(start),
-                source: self.source,
-            };
-            let mut blocks = region.blocks()?;
-            match blocks.len() {
-                1 => items.extend(blocks.pop()),
-                _ => return Err(self.refused(start)),
-            }
-        }
-        Ok((Block::List(items), cursor))
-    }
-
-    fn quote(&self, index: usize) -> Result<(Block, usize), ReadRefusal> {
-        let end = (index..self.lines.len())
-            .find(|candidate| !self.lines[*candidate].starts_with('>'))
-            .unwrap_or(self.lines.len());
-        if end < self.lines.len()
-            && matches!(
-                self.lines[end].opening(),
-                Opening::Paragraph | Opening::Indented
-            )
+    /// A table without alignment: its rows, the header first.
+    fn table<'a>(&self, table: Node<'a>) -> Result<Block, ReadRefusal> {
+        if let NodeValue::Table(shape) = &table.data.borrow().value
+            && shape.alignments.iter().any(|a| *a != TableAlignment::None)
         {
-            return Err(self.refused(end));
+            return Err(self.refused(table));
         }
-        let lines = self.lines[index..end]
-            .iter()
-            .map(|line| line.strip_prefix("> ").unwrap_or(&line[1..]).to_string())
-            .collect();
-        let region = Region {
-            lines,
-            first: self.line(index),
-            source: self.source,
-        };
-        Ok((Block::Quote(region.blocks()?), end))
+        let rows = table
+            .children()
+            .map(|row| {
+                row.children()
+                    .map(|cell| self.text(cell))
+                    .collect::<Result<Vec<Text>, ReadRefusal>>()
+                    .map(Row)
+            })
+            .collect::<Result<Vec<Row>, ReadRefusal>>()?;
+        Ok(Block::Table(rows))
     }
 
-    fn table(&self, index: usize) -> Result<(Block, usize), ReadRefusal> {
-        let end = (index..self.lines.len())
-            .find(|candidate| !self.lines[*candidate].starts_with('|'))
-            .unwrap_or(self.lines.len());
-        let cells: Vec<Vec<&str>> = self.lines[index..end]
-            .iter()
-            .map(|line| line.as_str().cells())
-            .collect();
-        let delimiter = cells.get(1).ok_or_else(|| self.refused(index))?;
-        let dashes = |cell: &&str| !cell.is_empty() && cell.chars().all(|c| c == '-');
-        if !delimiter.iter().all(dashes) {
-            return Err(self.refused(index + 1));
-        }
-        let header = cells[0].len();
-        let mut rows = Vec::new();
-        for (offset, row) in cells.iter().enumerate().filter(|(offset, _)| *offset != 1) {
-            if row.len() != header {
-                return Err(self.refused(index + offset));
+    /// The inside of a paragraph, a heading or a cell; adjacent words are one
+    /// TextPart, and a soft line break is a newline among them.
+    fn text<'a>(&self, container: Node<'a>) -> Result<Text, ReadRefusal> {
+        let mut text_parts: Vec<TextPart> = Vec::new();
+        for node in container.children() {
+            match (text_parts.last_mut(), self.text_part(node)?) {
+                (Some(TextPart::Words(last)), TextPart::Words(more)) => last.push_str(&more),
+                (_, text_part) => text_parts.push(text_part),
             }
-            let texts = row
-                .iter()
-                .map(|cell| Inline::new(cell, self.line(index + offset), self.source).text())
-                .collect::<Result<Vec<Text>, ReadRefusal>>()?;
-            rows.push(Row(texts));
         }
-        Ok((Block::Table(rows), end))
+        Ok(Text(text_parts))
     }
 
-    fn line(&self, index: usize) -> Line {
-        Line(self.first.0 + index as i64)
+    fn text_part<'a>(&self, node: Node<'a>) -> Result<TextPart, ReadRefusal> {
+        let value = node.data.borrow().value.clone();
+        Ok(match value {
+            NodeValue::Text(words) => TextPart::Words(words.to_string()),
+            NodeValue::SoftBreak => TextPart::Words("\n".to_string()),
+            // A tag written in prose, `vision:<topic>`, is words as written.
+            NodeValue::HtmlInline(written) => TextPart::Words(written),
+            NodeValue::Code(NodeCode { literal, .. }) => TextPart::Code(literal),
+            NodeValue::Emph => TextPart::Emphasis(self.text(node)?),
+            NodeValue::Strong => TextPart::Strong(self.text(node)?),
+            NodeValue::Link(link) if link.title.is_empty() => TextPart::Reference(Reference {
+                text: self.text(node)?,
+                target: Target::Url(link.url.clone()),
+            }),
+            _ => return Err(self.refused(node)),
+        })
     }
 
-    fn refused(&self, index: usize) -> ReadRefusal {
-        self.line(index).refusal(self.source)
-    }
-
-    fn unclosed(&self, index: usize) -> ReadRefusal {
-        ReadRefusal {
-            line: self.line(index),
-            problem: Problem::UnclosedFence,
-        }
+    fn refused<'a>(&self, node: Node<'a>) -> ReadRefusal {
+        node.line().refusal(&self.source)
     }
 }
 
@@ -380,202 +262,5 @@ impl Refusing for Line {
             line: *self,
             problem: Problem::Unsupported(written),
         }
-    }
-}
-
-/// A table line split into its cells at each unescaped bar, each cell trimmed.
-trait Cells {
-    fn cells(&self) -> Vec<&str>;
-}
-
-impl Cells for str {
-    fn cells(&self) -> Vec<&str> {
-        let inner = self.trim_end();
-        let inner = inner.strip_prefix('|').unwrap_or(inner);
-        let inner = inner
-            .strip_suffix('|')
-            .filter(|rest| !rest.ends_with('\\'))
-            .unwrap_or(inner);
-        let mut cells = Vec::new();
-        let mut start = 0;
-        let bytes = inner.as_bytes();
-        for (position, byte) in bytes.iter().enumerate() {
-            if *byte == b'|' && (position == 0 || bytes[position - 1] != b'\\') {
-                cells.push(inner[start..position].trim());
-                start = position + 1;
-            }
-        }
-        cells.push(inner[start..].trim());
-        cells
-    }
-}
-
-/// The characters a backslash escapes inside words.
-pub(crate) const ESCAPABLE: [char; 5] = ['\\', '*', '`', '[', ']'];
-
-/// What closes the text parts being read.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Closer {
-    Emphasis,
-    Strong,
-    Reference,
-}
-
-/// The inside of a paragraph, a title or a cell, read into text parts.
-struct Inline<'a> {
-    characters: Vec<char>,
-    position: usize,
-    line: Line,
-    source: &'a [String],
-}
-
-trait RunReading<'a> {
-    fn new(text: &str, line: Line, source: &'a [String]) -> Self;
-    fn text(self) -> Result<Text, ReadRefusal>;
-    fn text_parts(&mut self, closer: Option<Closer>) -> Result<Text, ReadRefusal>;
-    fn reference(&mut self) -> Option<Reference>;
-    fn at(&self, offset: usize) -> Option<char>;
-    fn refused(&self) -> ReadRefusal;
-}
-
-impl<'a> RunReading<'a> for Inline<'a> {
-    fn new(text: &str, line: Line, source: &'a [String]) -> Self {
-        Inline {
-            characters: text.chars().collect(),
-            position: 0,
-            line,
-            source,
-        }
-    }
-
-    fn text(mut self) -> Result<Text, ReadRefusal> {
-        self.text_parts(None)
-    }
-
-    fn text_parts(&mut self, closer: Option<Closer>) -> Result<Text, ReadRefusal> {
-        let mut text_parts = Vec::new();
-        let mut words = String::new();
-        let flush = |words: &mut String, text_parts: &mut Vec<TextPart>| {
-            if !words.is_empty() {
-                text_parts.push(TextPart::Words(std::mem::take(words)));
-            }
-        };
-        loop {
-            let Some(character) = self.at(0) else {
-                return match closer {
-                    None => {
-                        flush(&mut words, &mut text_parts);
-                        Ok(Text(text_parts))
-                    }
-                    Some(Closer::Emphasis) => Err(self.refused()),
-                    Some(Closer::Strong) => Err(self.refused()),
-                    Some(Closer::Reference) => Err(self.refused()),
-                };
-            };
-            match character {
-                '\\' => match self.at(1) {
-                    Some(escaped) if ESCAPABLE.contains(&escaped) => {
-                        words.push(escaped);
-                        self.position += 2;
-                    }
-                    _ => {
-                        words.push('\\');
-                        self.position += 1;
-                    }
-                },
-                '\n' => {
-                    words.push('\n');
-                    self.line = Line(self.line.0 + 1);
-                    self.position += 1;
-                }
-                '`' => {
-                    if self.at(1) == Some('`') {
-                        return Err(self.refused());
-                    }
-                    let close = (self.position + 1..self.characters.len())
-                        .find(|candidate| self.characters[*candidate] == '`')
-                        .ok_or_else(|| self.refused())?;
-                    let code: String = self.characters[self.position + 1..close].iter().collect();
-                    self.line = Line(self.line.0 + code.matches('\n').count() as i64);
-                    flush(&mut words, &mut text_parts);
-                    text_parts.push(TextPart::Code(code));
-                    self.position = close + 1;
-                }
-                '*' => {
-                    let strong = self.at(1) == Some('*');
-                    let (own, width) = match strong {
-                        true => (Closer::Strong, 2),
-                        false => (Closer::Emphasis, 1),
-                    };
-                    self.position += width;
-                    flush(&mut words, &mut text_parts);
-                    if closer == Some(own) {
-                        return Ok(Text(text_parts));
-                    }
-                    let inner = self.text_parts(Some(own))?;
-                    text_parts.push(match strong {
-                        true => TextPart::Strong(inner),
-                        false => TextPart::Emphasis(inner),
-                    });
-                }
-                ']' if closer == Some(Closer::Reference) => {
-                    self.position += 1;
-                    flush(&mut words, &mut text_parts);
-                    return Ok(Text(text_parts));
-                }
-                '[' => match self.reference() {
-                    Some(reference) => {
-                        flush(&mut words, &mut text_parts);
-                        text_parts.push(TextPart::Reference(reference));
-                    }
-                    None => {
-                        words.push('[');
-                        self.position += 1;
-                    }
-                },
-                other => {
-                    words.push(other);
-                    self.position += 1;
-                }
-            }
-        }
-    }
-
-    /// A link read from the bracket at the position; on any other shape the
-    /// position is left where it was and the bracket is words.
-    fn reference(&mut self) -> Option<Reference> {
-        let (position, line) = (self.position, self.line);
-        self.position += 1;
-        let text = self.text_parts(Some(Closer::Reference)).ok();
-        let close = (self.at(0) == Some('('))
-            .then(|| {
-                (self.position + 1..self.characters.len())
-                    .find(|candidate| self.characters[*candidate] == ')')
-            })
-            .flatten();
-        match (text, close) {
-            (Some(text), Some(close)) => {
-                let url: String = self.characters[self.position + 1..close].iter().collect();
-                self.line = Line(self.line.0 + url.matches('\n').count() as i64);
-                self.position = close + 1;
-                Some(Reference {
-                    text,
-                    target: Target::Url(url),
-                })
-            }
-            _ => {
-                self.position = position;
-                self.line = line;
-                None
-            }
-        }
-    }
-
-    fn at(&self, offset: usize) -> Option<char> {
-        self.characters.get(self.position + offset).copied()
-    }
-
-    fn refused(&self) -> ReadRefusal {
-        self.line.refusal(self.source)
     }
 }

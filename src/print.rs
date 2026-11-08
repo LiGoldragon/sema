@@ -1,7 +1,14 @@
-//! A Document printed into Markdown, in the canonical form the reader takes:
-//! one blank line between blocks, and a newline ending the text.
+//! A Document printed into Markdown. The Document is built into comrak's
+//! CommonMark tree, and comrak prints the tree: a top section at `#`, one blank
+//! line between blocks, and a newline ending the text.
 
-use crate::compose::ESCAPABLE;
+use comrak::nodes::{
+    AstNode, ListType, NodeCode, NodeCodeBlock, NodeHeading, NodeLink, NodeList, NodeTable,
+    NodeValue, TableAlignment,
+};
+use comrak::{Arena, Options};
+
+use crate::commonmark::Configured;
 use crate::document::{Block, Depth, Document, Markdown, Place, Row, Target, Text, TextPart};
 use crate::programming_language::Spelled;
 
@@ -11,130 +18,242 @@ pub trait Printable {
 
 impl Printable for Document {
     fn print(&self) -> Markdown {
-        let body = self.0.as_slice().rendered(Depth(0));
-        match body.is_empty() {
-            true => Markdown(body),
-            false => Markdown(body + "\n"),
+        let arena = Arena::new();
+        let builder = Builder { arena: &arena };
+        let root = builder.node(NodeValue::Document);
+        for block in &self.0 {
+            builder.block(root, block, Depth(1));
+        }
+        let mut out = String::new();
+        comrak::format_commonmark(root, &Options::sema(), &mut out)
+            .expect("formatting into a String cannot fail");
+        Markdown(out)
+    }
+}
+
+/// Builds comrak's tree from the Document, its nodes held by one arena.
+struct Builder<'a> {
+    arena: &'a Arena<'a>,
+}
+
+type Node<'a> = &'a AstNode<'a>;
+
+trait Building<'a> {
+    fn node(&self, value: NodeValue) -> Node<'a>;
+    fn block(&self, parent: Node<'a>, block: &Block, depth: Depth);
+    fn row(&self, table: Node<'a>, row: &Row, header: bool);
+    fn text(&self, parent: Node<'a>, text: &Text);
+    fn words(&self, parent: Node<'a>, words: &str);
+}
+
+/// A bullet list, tight, marked `-`.
+trait Bullet {
+    fn bullet() -> Self;
+}
+
+impl Bullet for NodeList {
+    fn bullet() -> Self {
+        NodeList {
+            list_type: ListType::Bullet,
+            bullet_char: b'-',
+            tight: true,
+            padding: 2,
+            ..NodeList::default()
         }
     }
 }
 
-/// Where words are printed, which decides what it escapes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Surround {
-    Prose,
-    ReferenceText,
-}
-
-trait BlockRendering {
-    fn rendered(&self, depth: Depth) -> String;
-}
-
-impl BlockRendering for [Block] {
-    fn rendered(&self, depth: Depth) -> String {
-        self.iter()
-            .map(|block| block.rendered(depth))
-            .collect::<Vec<_>>()
-            .join("\n\n")
+impl<'a> Building<'a> for Builder<'a> {
+    fn node(&self, value: NodeValue) -> Node<'a> {
+        self.arena.alloc(AstNode::from(value))
     }
-}
 
-impl BlockRendering for Block {
-    fn rendered(&self, depth: Depth) -> String {
-        match self {
-            Block::Statement(text) => text.rendered(Surround::Prose),
+    fn block(&self, parent: Node<'a>, block: &Block, depth: Depth) {
+        match block {
+            Block::Statement(text) => {
+                let paragraph = self.node(NodeValue::Paragraph);
+                self.text(paragraph, text);
+                parent.append(paragraph);
+            }
             Block::Section(section) => {
-                let mut out =
-                    "#".repeat(depth.0 + 1) + " " + &section.title.0.rendered(Surround::Prose);
-                if !section.block_vector.is_empty() {
-                    out += "\n\n";
-                    out += &section.block_vector.as_slice().rendered(Depth(depth.0 + 1));
+                let heading = self.node(NodeValue::Heading(NodeHeading {
+                    level: depth.0 as u8,
+                    setext: false,
+                    closed: false,
+                }));
+                self.text(heading, &section.title.0);
+                parent.append(heading);
+                for inner in &section.block_vector {
+                    self.block(parent, inner, Depth(depth.0 + 1));
                 }
-                out
             }
-            Block::Code(code) => match code.text.0.is_empty() {
-                true => format!("```{}\n```", code.programming_language.spelling()),
-                false => format!(
-                    "```{}\n{}\n```",
-                    code.programming_language.spelling(),
-                    code.text.verbatim()
-                ),
-            },
-            Block::List(items) => items
-                .iter()
-                .map(|item| item.rendered(Depth(0)).prefixed("- ", "  "))
-                .collect::<Vec<_>>()
-                .join("\n"),
-            Block::Quote(blocks) => blocks.as_slice().rendered(Depth(0)).prefixed("> ", "> "),
-            Block::Table(rows) => {
-                let mut lines: Vec<String> = rows.iter().map(Row::rendered).collect();
-                if let Some(header) = rows.first() {
-                    let delimiter = vec!["---"; header.0.len()].join(" | ");
-                    lines.insert(1, format!("| {delimiter} |"));
+            Block::Code(code) => {
+                let mut literal = code.text.verbatim();
+                if !literal.is_empty() {
+                    literal.push('\n');
                 }
-                lines.join("\n")
+                parent.append(self.node(NodeValue::CodeBlock(Box::new(NodeCodeBlock {
+                    fenced: true,
+                    fence_char: b'`',
+                    fence_length: 3,
+                    info: code.programming_language.spelling().to_string(),
+                    literal,
+                    closed: true,
+                    ..NodeCodeBlock::default()
+                }))));
+            }
+            Block::List(items) => {
+                let list = self.node(NodeValue::List(NodeList::bullet()));
+                for item in items {
+                    let item_node = self.node(NodeValue::Item(NodeList::bullet()));
+                    self.block(item_node, item, depth);
+                    list.append(item_node);
+                }
+                parent.append(list);
+            }
+            Block::Quote(blocks) => {
+                let quote = self.node(NodeValue::BlockQuote);
+                for inner in blocks {
+                    self.block(quote, inner, depth);
+                }
+                parent.append(quote);
+            }
+            Block::Table(rows) => {
+                let columns = rows.first().map_or(0, |row| row.0.len());
+                let table = self.node(NodeValue::Table(Box::new(NodeTable {
+                    alignments: vec![TableAlignment::None; columns],
+                    num_columns: columns,
+                    num_rows: rows.len(),
+                    num_nonempty_cells: 0,
+                })));
+                for (index, row) in rows.iter().enumerate() {
+                    self.row(table, row, index == 0);
+                }
+                parent.append(table);
+            }
+        }
+    }
+
+    fn row(&self, table: Node<'a>, row: &Row, header: bool) {
+        let row_node = self.node(NodeValue::TableRow(header));
+        for cell in &row.0 {
+            let cell_node = self.node(NodeValue::TableCell);
+            self.text(cell_node, cell);
+            row_node.append(cell_node);
+        }
+        table.append(row_node);
+    }
+
+    fn text(&self, parent: Node<'a>, text: &Text) {
+        for text_part in &text.0 {
+            match text_part {
+                TextPart::Words(words) => self.words(parent, words),
+                TextPart::Code(code) => parent.append(self.node(NodeValue::Code(NodeCode {
+                    num_backticks: 1,
+                    literal: code.clone(),
+                }))),
+                TextPart::Emphasis(inner) => {
+                    let emphasis = self.node(NodeValue::Emph);
+                    self.text(emphasis, inner);
+                    parent.append(emphasis);
+                }
+                TextPart::Strong(inner) => {
+                    let strong = self.node(NodeValue::Strong);
+                    self.text(strong, inner);
+                    parent.append(strong);
+                }
+                TextPart::Reference(reference) => {
+                    let url = match &reference.target {
+                        Target::Url(url) => url.clone(),
+                        Target::Place(place) => place.anchor(),
+                    };
+                    let link = self.node(NodeValue::Link(Box::new(NodeLink {
+                        url,
+                        title: String::new(),
+                    })));
+                    self.text(link, &reference.text);
+                    parent.append(link);
+                }
+            }
+        }
+    }
+
+    /// Words, a newline among them a soft line break, and a tag written in
+    /// prose printed as written, as it was read.
+    fn words(&self, parent: Node<'a>, words: &str) {
+        for (index, line) in words.split('\n').enumerate() {
+            if index > 0 {
+                parent.append(self.node(NodeValue::SoftBreak));
+            }
+            for segment in line.segments() {
+                let value = match segment {
+                    Segment::Words(words) => NodeValue::Text(words.to_string().into()),
+                    Segment::Tag(tag) => NodeValue::HtmlInline(tag.to_string()),
+                };
+                parent.append(self.node(value));
             }
         }
     }
 }
 
-trait RowRendering {
-    fn rendered(&self) -> String;
+/// A line of words split where a tag is written: `<` and a letter or `/`,
+/// then anything but a bracket or a newline, then `>`.
+enum Segment<'s> {
+    Words(&'s str),
+    Tag(&'s str),
 }
 
-impl RowRendering for Row {
-    fn rendered(&self) -> String {
-        let cells: Vec<String> = self
-            .0
-            .iter()
-            .map(|cell| cell.rendered(Surround::Prose))
-            .collect();
-        format!("| {} |", cells.join(" | "))
-    }
+trait Segmented {
+    fn segments(&self) -> Vec<Segment<'_>>;
 }
 
-/// Every line of a block given a leading mark: the first line one, the rest
-/// another. An empty line keeps the mark without its trailing space.
-trait Prefixed {
-    fn prefixed(&self, first: &str, rest: &str) -> String;
-}
-
-impl Prefixed for String {
-    fn prefixed(&self, first: &str, rest: &str) -> String {
-        self.split('\n')
-            .enumerate()
-            .map(|(index, line)| {
-                let mark = if index == 0 { first } else { rest };
-                match line.is_empty() {
-                    true => mark.trim_end().to_string(),
-                    false => format!("{mark}{line}"),
+impl Segmented for str {
+    fn segments(&self) -> Vec<Segment<'_>> {
+        let mut segments = Vec::new();
+        let mut start = 0;
+        let mut cursor = 0;
+        while let Some(offset) = self[cursor..].find('<') {
+            let open = cursor + offset;
+            let rest = &self[open + 1..];
+            let tag_end = rest
+                .chars()
+                .next()
+                .filter(|first| first.is_ascii_alphabetic() || *first == '/')
+                .and_then(|_| rest.find(['<', '>']))
+                .filter(|end| rest.as_bytes()[*end] == b'>');
+            match tag_end {
+                Some(end) => {
+                    if start < open {
+                        segments.push(Segment::Words(&self[start..open]));
+                    }
+                    let close = open + 1 + end + 1;
+                    segments.push(Segment::Tag(&self[open..close]));
+                    start = close;
+                    cursor = close;
                 }
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
+                None => cursor = open + 1,
+            }
+        }
+        if start < self.len() {
+            segments.push(Segment::Words(&self[start..]));
+        }
+        segments
     }
 }
 
-trait TextRendering {
-    fn rendered(&self, surround: Surround) -> String;
+trait Verbatim {
     /// The text as a fence holds it: its words unescaped.
     fn verbatim(&self) -> String;
 }
 
-impl TextRendering for Text {
-    fn rendered(&self, surround: Surround) -> String {
-        self.0
-            .iter()
-            .map(|text_part| text_part.rendered(surround))
-            .collect()
-    }
-
+impl Verbatim for Text {
     fn verbatim(&self) -> String {
         self.0
             .iter()
             .map(|text_part| match text_part {
-                TextPart::Words(words) => words.clone(),
-                other => other.rendered(Surround::Prose),
+                TextPart::Words(words) | TextPart::Code(words) => words.clone(),
+                TextPart::Emphasis(inner) | TextPart::Strong(inner) => inner.verbatim(),
+                TextPart::Reference(reference) => reference.text.verbatim(),
             })
             .collect()
     }
@@ -153,60 +272,5 @@ trait AnchorConversion {
 impl AnchorConversion for Place {
     fn anchor(&self) -> String {
         unimplemented!("Place-to-anchor conversion is not designed in Sema v0")
-    }
-}
-
-trait TextPartRendering {
-    fn rendered(&self, surround: Surround) -> String;
-}
-
-impl TextPartRendering for TextPart {
-    fn rendered(&self, surround: Surround) -> String {
-        match self {
-            TextPart::Words(words) => words.escaped(surround),
-            TextPart::Emphasis(text) => format!("*{}*", text.rendered(surround)),
-            TextPart::Strong(text) => format!("**{}**", text.rendered(surround)),
-            TextPart::Code(code) => format!("`{code}`"),
-            TextPart::Reference(reference) => {
-                let target = match &reference.target {
-                    Target::Url(url) => url.clone(),
-                    Target::Place(place) => place.anchor(),
-                };
-                format!(
-                    "[{}]({target})",
-                    reference.text.rendered(Surround::ReferenceText)
-                )
-            }
-        }
-    }
-}
-
-/// Words with the escapes the reader needs to read them back as words.
-trait Escaped {
-    fn escaped(&self, surround: Surround) -> String;
-}
-
-impl Escaped for String {
-    fn escaped(&self, surround: Surround) -> String {
-        let characters: Vec<char> = self.chars().collect();
-        let mut out = String::new();
-        for (index, character) in characters.iter().enumerate() {
-            let following = characters.get(index + 1);
-            let escape = match character {
-                '*' | '`' => true,
-                '\\' => following.is_none_or(|next| ESCAPABLE.contains(next)),
-                '[' => characters[index..]
-                    .iter()
-                    .collect::<String>()
-                    .contains("]("),
-                ']' => surround == Surround::ReferenceText,
-                _ => false,
-            };
-            if escape {
-                out.push('\\');
-            }
-            out.push(*character);
-        }
-        out
     }
 }

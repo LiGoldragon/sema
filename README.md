@@ -10,6 +10,18 @@ Vision source: `psyche-belief` revision `738727d23ec9e9cc6f37b018f428eee5c6cee05
   Document holding a `Target.Place` stops with `unimplemented!`, because the
   Place-to-anchor conversion is not designed. The contract test is kept,
   ignored, in `tests/round_trip.rs`.
+- The Markdown codec is comrak 0.59.0, both ways (Fable order). comrak reads
+  the text into its CommonMark tree, `src/compose.rs` walks that tree into the
+  Document, and `src/print.rs` builds the tree from a Document for comrak to
+  print; `src/commonmark.rs` configures both directions in one place. No comrak
+  type is in the schema. What the Document has a place for is read whichever
+  way it is written: a setext heading, a `*` list, a tilde or indented fence.
+  What it has no place for is `Unsupported`: an ordered list, a thematic break,
+  an HTML block, an image, a hard line break, a link title, an aligned table,
+  a list item of more than one block, a heading inside a list or a quote. A
+  tag written in prose, `vision:<topic>`, is words and prints as written. The
+  libraries measured against the belief corpus, and the per-module table, are
+  in `measure/round-trip.md`.
 - Depth is the nesting, read relative: the first heading's level is the top
   and each deeper level a child; a heading above the top, or one skipping a
   level, is `Unsupported`. The print is canonical, top sections at `#`, so a
@@ -36,7 +48,6 @@ Vision source: `psyche-belief` revision `738727d23ec9e9cc6f37b018f428eee5c6cee05
 - `Structural` implements `outline`, `code`, `references` and `search` by hand.
   `edit` is not implemented: `Mismatch.{ Place Expected.Block Found.Block }` names
   a Found block, and no rule yet says which block is found when no block at
-  the place equals Old.
-- No generated code yet: the living allows a declared type in a capability
-  input for now, and the schema runs through ethos-zero unchanged once the
-  version that accepts it is published.
+  the place equals Expected.
+- No generated code yet. ethos-zero 20.0.0 checks every ethos file of the lane
+  in the flake check.

@@ -1,6 +1,7 @@
 //! Sema version 0: Markdown read structurally. Markdown composes into a
 //! Document, and a Document prints back into Markdown: one walk, two directions.
 
+mod commonmark;
 mod compose;
 mod document;
 mod error;

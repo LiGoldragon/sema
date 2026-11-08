@@ -10,3 +10,6 @@ publish      = false
 [[bin]]
 name = "sema"
 path = "cli/main.rs"
+
+[dependencies]
+comrak = { version = "0.59", default-features = false }
