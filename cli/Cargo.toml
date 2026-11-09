@@ -13,5 +13,5 @@ path = "main.rs"
 
 [dependencies]
 sema        = { path = "..", features = ["datom"] }
-datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "5cd6219" }
-protos      = { git = "https://github.com/LiGoldragon/protos", rev = "3c7ade3" }
+datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "09a0526" }
+protos      = { git = "https://github.com/LiGoldragon/protos", rev = "c93b598" }
