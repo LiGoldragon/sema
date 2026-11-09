@@ -1,0 +1,17 @@
+[package]
+name                       = "sema-cli"
+description                = "The sema translator: a Markdown file read as a Module, asked in datom, answered in datom."
+version.workspace          = true
+edition.workspace          = true
+rust-version.workspace     = true
+license.workspace          = true
+publish.workspace          = true
+
+[[bin]]
+name = "sema"
+path = "main.rs"
+
+[dependencies]
+sema        = { path = "..", features = ["datom"] }
+datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "5cd6219" }
+protos      = { git = "https://github.com/LiGoldragon/protos", rev = "3c7ade3" }

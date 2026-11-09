@@ -76,6 +76,7 @@ source = "git+https://github.com/LiGoldragon/datom-codec?rev=5cd6219#5cd62196d07
 dependencies = [
  "datom-codec-derive",
  "protos",
+ "rkyv",
 ]
 
 [[package]]
@@ -99,6 +100,20 @@ name = "equivalent"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "00d174d5400e5e8fd687ad1049e2f578285fa914201b1af7e8b112a4546bd826"
+
+[[package]]
+name = "ethos-zero"
+version = "22.0.0"
+source = "git+https://github.com/LiGoldragon/ethos-zero?rev=ccacc21#ccacc214ba00b8448218d0b7559f037014694e41"
+dependencies = [
+ "datom-codec",
+ "prettyplease",
+ "proc-macro2",
+ "protos",
+ "quote",
+ "rkyv",
+ "syn 3.0.9",
+]
 
 [[package]]
 name = "fastrand"
@@ -256,6 +271,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
+name = "prettyplease"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bfe0f4c752e450fc2faf62654f1c134747922825d5b04ca717b8874f41a40c0"
+dependencies = [
+ "proc-macro2",
+ "syn 3.0.9",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.107"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -268,6 +293,9 @@ dependencies = [
 name = "protos"
 version = "0.33.0"
 source = "git+https://github.com/LiGoldragon/protos?rev=3c7ade3#3c7ade34010cec6cec153ae694ee335f7fea0193"
+dependencies = [
+ "rkyv",
+]
 
 [[package]]
 name = "ptr_meta"
@@ -364,8 +392,17 @@ version = "0.1.0"
 dependencies = [
  "comrak",
  "datom-codec",
- "protos",
+ "ethos-zero",
  "rkyv",
+]
+
+[[package]]
+name = "sema-cli"
+version = "0.1.0"
+dependencies = [
+ "datom-codec",
+ "protos",
+ "sema",
 ]
 
 [[package]]

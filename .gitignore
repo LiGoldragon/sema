@@ -1,7 +1,2 @@
 /target
 /result*
-# generated from ethos/ by the flake, never kept
-/src/document.rs
-/src/markdown.rs
-/src/module.rs
-/src/reading.rs

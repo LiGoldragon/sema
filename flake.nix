@@ -1,97 +1,96 @@
 {
   description = "sema — Sema version 0: Markdown read structurally";
 
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
-    ethos-zero = {
-      url = "github:LiGoldragon/ethos-zero/v22.0.0";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    rust-build = {
-      url = "github:LiGoldragon/rust-build";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-  };
+  inputs.base.url = "github:LiGoldragon/build-base";
 
-  outputs = { self, nixpkgs, flake-utils, ethos-zero, rust-build }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = import nixpkgs { inherit system; };
-        rust = rust-build.lib.${system}.fromPkgs pkgs;
-        inherit (rust) craneLib toolchain;
-        ethosZero = ethos-zero.packages.${system}.default;
-        # The hand-written source: trait bodies only; nothing generated is kept.
-        handSource = rust.cleanSource { root = ./.; };
-        # The Rust ethos-zero generates from the ethos, one module per file.
-        generated = pkgs.runCommand "sema-generated" { nativeBuildInputs = [ ethosZero ]; } ''
-          mkdir $out
-          for file in ${./ethos}/*.ethos; do
-            ethos-zero "Generate.{ $file $out }"
-          done
-        '';
-        # The crate as it is built: the hand-written source with the generated modules beside it.
-        src = pkgs.runCommand "sema-source" { } ''
-          cp -r ${handSource} $out
-          chmod -R u+w $out
-          cp ${generated}/*.rs $out/src/
-        '';
-        commonArguments = { inherit src; strictDeps = true; };
-        cargoArtifacts = craneLib.buildDepsOnly commonArguments;
-      in
-      {
-        packages.generated = generated;
-        # The CLI speaks text, so it is built with the datom kinds.
-        packages.default = craneLib.buildPackage (commonArguments // {
-          inherit cargoArtifacts;
-          cargoExtraArgs = "--locked --features datom";
-        });
-        checks = {
-          build = craneLib.cargoBuild (commonArguments // { inherit cargoArtifacts; });
-          test = craneLib.cargoTest (commonArguments // { inherit cargoArtifacts; });
-          fmt = craneLib.cargoFmt { inherit src; };
-          clippy = craneLib.cargoClippy (commonArguments // {
-            inherit cargoArtifacts;
-            cargoClippyExtraArgs = "--all-targets --features datom -- -D warnings";
-          });
-          # No type or trait is declared by hand: every one is generated from the ethos.
-          no-hand-written-declarations = pkgs.runCommand "sema-no-hand-written-declarations" { } ''
-            if grep -R -n -E '^[[:space:]]*(pub(\([^)]*\))? )?(struct|enum|trait|type|union) ' ${handSource}/src ${handSource}/cli; then
-              echo "every type and trait is declared in the ethos" >&2
-              exit 1
-            fi
-            touch $out
-          '';
-          datom = craneLib.cargoBuild (commonArguments // {
-            inherit cargoArtifacts;
-            cargoExtraArgs = "--locked --features datom";
-          });
-          ethos = pkgs.runCommand "sema-ethos" {
-            nativeBuildInputs = [ ethosZero ];
-          } ''
-            for file in ${./ethos}/*.ethos; do
-              ethos-zero "Check.$file" | tee -a $out
+  # Cargo.nix is generated from Cargo.lock by the build base's crate2nix and
+  # committed, so evaluation imports no derivation:
+  #   nix run github:LiGoldragon/build-base#crate2nix -- generate
+  outputs =
+    { self, base }:
+    base.lib.workspaceOutputs {
+      cargoNix = ./Cargo.nix;
+      extraChecks =
+        {
+          pkgs,
+          toolchain,
+          buildRustCrateForPkgs,
+          workspace,
+          tests,
+          ...
+        }:
+        let
+          # The hand-written source; src/generated/ is ethos-zero's, proved
+          # fresh by the build script.
+          handWritten = pkgs.lib.cleanSourceWith {
+            src = ./.;
+            filter =
+              path: _:
+              let
+                relative = pkgs.lib.removePrefix (toString ./. + "/") path;
+              in
+              !(pkgs.lib.hasPrefix "src/generated" relative)
+              && !(pkgs.lib.hasPrefix "measure" relative);
+          };
+          # A crate compiled by clippy-driver, every warning an error.
+          clippyAttributes = {
+            useClippy = true;
+            clippy = toolchain;
+            capLints = "forbid";
+            extraRustcOpts = [
+              "-D"
+              "warnings"
+            ];
+          };
+          # A member as the crate builder builds it, its dependencies the
+          # same derivations as the build's, compiled by clippy-driver.
+          linted =
+            packageId:
+            (workspace.internal.builtRustCratesWithFeatures {
+              inherit packageId;
+              features = [ "default" ];
+              buildRustCrateForPkgsFunc = buildRustCrateForPkgs;
+              runTests = false;
+            }).crates.${packageId}.override
+              clippyAttributes;
+          grepRefuses =
+            name: message: pattern: paths:
+            pkgs.runCommand "sema-${name}" { } ''
+              if grep -R -n -E '${pattern}' ${pkgs.lib.concatMapStringsSep " " (path: "${handWritten}/${path}") paths}; then
+                echo "${message}" >&2
+                exit 1
+              fi
+              touch $out
+            '';
+        in
+        {
+          # Each hand-written file read alone, so no module is followed.
+          fmt = pkgs.runCommand "sema-fmt" { nativeBuildInputs = [ toolchain ]; } ''
+            status=0
+            for file in $(find ${handWritten} -name '*.rs'); do
+              rustfmt --edition 2024 < "$file" | diff -u "$file" - || status=1
             done
-            ! grep -q '^Rejected' $out
+            [ $status = 0 ] && touch $out
           '';
-          no-production-free-functions = pkgs.runCommand "sema-no-production-free-functions" { } ''
-            if grep -R -n -E '^(pub(\([^)]*\))? )?fn ' ${src}/src; then
-              echo "production Rust must not use module-level free functions" >&2
-              exit 1
-            fi
-            touch $out
-          '';
-          no-production-inherent-methods = pkgs.runCommand "sema-no-production-inherent-methods" { } ''
-            if grep -R -n -E '^[[:space:]]*impl[[:space:]]+[[:alpha:]_][[:alnum:]_:<>]*[[:space:]]*\{' ${src}/src; then
-              echo "production Rust must home behavior in traits" >&2
-              exit 1
-            fi
-            touch $out
-          '';
+          clippy-sema = linted "sema";
+          clippy-sema-tests = tests.sema.override clippyAttributes;
+          clippy-sema-cli = linted "sema-cli";
+          # No type or trait is declared by hand: every one is generated from the ethos.
+          no-hand-written-declarations =
+            grepRefuses "no-hand-written-declarations" "every type and trait is declared in the ethos"
+              "^[[:space:]]*(pub(\\([^)]*\\))? )?(struct|enum|trait|type|union) "
+              [
+                "src"
+                "cli"
+              ];
+          no-production-free-functions =
+            grepRefuses "no-production-free-functions" "production Rust must not use module-level free functions"
+              "^(pub(\\([^)]*\\))? )?fn "
+              [ "src" ];
+          no-production-inherent-methods =
+            grepRefuses "no-production-inherent-methods" "production Rust must home behavior in traits"
+              "^[[:space:]]*impl[[:space:]]+[[:alpha:]_][[:alnum:]_:<>]*[[:space:]]*\\{"
+              [ "src" ];
         };
-        devShells.default = pkgs.mkShell {
-          name = "sema";
-          packages = [ toolchain ];
-        };
-      });
+    };
 }
