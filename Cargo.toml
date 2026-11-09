@@ -25,7 +25,10 @@ datom = ["dep:datom-codec"]
 [dependencies]
 comrak      = { version = "0.59", default-features = false }
 rkyv        = { version = "0.8", default-features = false, features = ["std", "bytecheck", "little_endian", "pointer_width_32", "unaligned"] }
+# serde with derive: the build base builds serde 1.0.229 with derive for every
+# repository, attaching serde_derive, so this workspace carries that edge.
+serde       = { version = "1.0.229", features = ["derive"] }
 datom-codec = { git = "https://github.com/LiGoldragon/datom-codec", rev = "5cd6219", optional = true }
 
 [build-dependencies]
-ethos-zero = { git = "https://github.com/LiGoldragon/ethos-zero", rev = "ccacc21" }
+ethos-zero = { git = "https://github.com/LiGoldragon/ethos-zero", rev = "daa22ee" }

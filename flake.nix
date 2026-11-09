@@ -14,9 +14,8 @@
         {
           pkgs,
           toolchain,
-          buildRustCrateForPkgs,
-          workspace,
-          tests,
+          clippy,
+          doc,
           ...
         }:
         let
@@ -32,27 +31,6 @@
               !(pkgs.lib.hasPrefix "src/generated" relative)
               && !(pkgs.lib.hasPrefix "measure" relative);
           };
-          # A crate compiled by clippy-driver, every warning an error.
-          clippyAttributes = {
-            useClippy = true;
-            clippy = toolchain;
-            capLints = "forbid";
-            extraRustcOpts = [
-              "-D"
-              "warnings"
-            ];
-          };
-          # A member as the crate builder builds it, its dependencies the
-          # same derivations as the build's, compiled by clippy-driver.
-          linted =
-            packageId:
-            (workspace.internal.builtRustCratesWithFeatures {
-              inherit packageId;
-              features = [ "default" ];
-              buildRustCrateForPkgsFunc = buildRustCrateForPkgs;
-              runTests = false;
-            }).crates.${packageId}.override
-              clippyAttributes;
           grepRefuses =
             name: message: pattern: paths:
             pkgs.runCommand "sema-${name}" { } ''
@@ -72,9 +50,10 @@
             done
             [ $status = 0 ] && touch $out
           '';
-          clippy-sema = linted "sema";
-          clippy-sema-tests = tests.sema.override clippyAttributes;
-          clippy-sema-cli = linted "sema-cli";
+          # Every target of each member, every warning an error.
+          clippy-sema = clippy "sema" [ "default" "datom" ] [ "-D" "warnings" ];
+          clippy-sema-cli = clippy "sema-cli" [ "default" ] [ "-D" "warnings" ];
+          doc-sema = doc "sema" [ "default" "datom" ] [ "-D" "warnings" ];
           # No type or trait is declared by hand: every one is generated from the ethos.
           no-hand-written-declarations =
             grepRefuses "no-hand-written-declarations" "every type and trait is declared in the ethos"
