@@ -10,11 +10,19 @@
     { self, base }:
     base.lib.workspaceOutputs {
       cargoNix = ./Cargo.nix;
+      # sema's tests run, and are linted, with the datom feature too.
+      memberChecks =
+        { check, ... }:
+        {
+          sema = check "sema" [
+            "default"
+            "datom"
+          ];
+        };
       extraChecks =
         {
           pkgs,
           toolchain,
-          clippy,
           doc,
           ...
         }:
@@ -50,9 +58,6 @@
             done
             [ $status = 0 ] && touch $out
           '';
-          # Every target of each member, every warning an error.
-          clippy-sema = clippy "sema" [ "default" "datom" ] [ "-D" "warnings" ];
-          clippy-sema-cli = clippy "sema-cli" [ "default" ] [ "-D" "warnings" ];
           doc-sema = doc "sema" [ "default" "datom" ] [ "-D" "warnings" ];
           # No type or trait is declared by hand: every one is generated from the ethos.
           no-hand-written-declarations =
